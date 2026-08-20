@@ -1,4 +1,4 @@
-# DocLens — Intelligent Document Summary Assistant
+# DocLens - Intelligent Document Summary Assistant
 
 > Upload a document. Understand it instantly. Ask questions about it.
 

@@ -127,32 +127,7 @@ export default function DocumentWorkspace() {
               </section>
             )}
 
-            {doc.main_ideas && doc.main_ideas.length > 0 && (
-              <section>
-                <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">Main Ideas</h3>
-                <div className="flex flex-wrap gap-2">
-                  {doc.main_ideas.map((idea: string, i: number) => (
-                    <span key={i} className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-sm text-neutral-300">
-                      {idea}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
 
-            {doc.improvement_suggestions && doc.improvement_suggestions.length > 0 && (
-              <section>
-                <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">Insights / Action Items</h3>
-                <div className="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 space-y-2">
-                  {doc.improvement_suggestions.map((sug: string, i: number) => (
-                    <div key={i} className="flex gap-3 text-blue-200 text-sm">
-                      <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                      <p>{sug}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
 

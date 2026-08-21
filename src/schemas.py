@@ -19,8 +19,6 @@ class SummaryResponse(BaseModel):
     summary: str
     summary_length: str
     key_points: List[str]
-    main_ideas: List[str]
-    improvement_suggestions: List[str]
     document_type: str
     confidence: float
 
@@ -37,8 +35,6 @@ class DocumentDetail(BaseModel):
     summary: Optional[str]
     summary_length: Optional[str]
     key_points: Optional[List[str]]
-    main_ideas: Optional[List[str]]
-    improvement_suggestions: Optional[List[str]]
 
 class DocumentListResponse(BaseModel):
     documents: List[DocumentDetail]

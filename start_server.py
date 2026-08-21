@@ -12,7 +12,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 from config import Config
 
 from src.schemas import (
@@ -62,7 +62,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -95,7 +95,7 @@ async def upload_document(
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        doc_uri = f"file://{tmp_path}"
+        doc_uri = tmp_path
         
         # Process and summarize
         result = await app.state.summary_service.process_and_summarize(doc_uri, summary_length)
@@ -145,9 +145,7 @@ async def list_documents(user: dict = Depends(get_current_user)):
             upload_timestamp=doc.get("upload_timestamp", str(doc.get("created_at", ""))),
             summary=doc.get("summary"),
             summary_length=doc.get("summary_length"),
-            key_points=doc.get("key_points", []),
-            main_ideas=doc.get("main_ideas", []),
-            improvement_suggestions=doc.get("improvement_suggestions", [])
+            key_points=doc.get("key_points", [])
         ))
         
     return DocumentListResponse(documents=mapped_docs)
@@ -167,9 +165,7 @@ async def get_document(doc_id: str, user: dict = Depends(get_current_user)):
         upload_timestamp=doc.get("upload_timestamp", str(doc.get("created_at", ""))),
         summary=doc.get("summary"),
         summary_length=doc.get("summary_length"),
-        key_points=doc.get("key_points", []),
-        main_ideas=doc.get("main_ideas", []),
-        improvement_suggestions=doc.get("improvement_suggestions", [])
+        key_points=doc.get("key_points", [])
     )
 
 

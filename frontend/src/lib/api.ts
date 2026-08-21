@@ -2,9 +2,21 @@ import { auth } from './firebase';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
-async function getAuthHeaders() {
+function getGuestToken() {
+  if (typeof window === 'undefined') return 'guest_fallback';
+  let token = localStorage.getItem('doclens_guest_token');
+  if (!token) {
+    token = 'guest_' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('doclens_guest_token', token);
+  }
+  return token;
+}
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!auth.currentUser) {
-    throw new Error('Not authenticated');
+    return {
+      'Authorization': `Bearer ${getGuestToken()}`
+    };
   }
   const token = await auth.currentUser.getIdToken();
   return {

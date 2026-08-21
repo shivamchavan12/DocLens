@@ -9,7 +9,7 @@ class Config:
     """
     # API Keys and Tokens
     GEMINI_API_KEY: Optional[str] = os.getenv('GEMINI_API_KEY')
-    GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+    GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
 
     # Firebase Admin SDK (Backend)
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv('FIREBASE_PROJECT_ID')

@@ -1,5 +1,6 @@
 import logging
 import os
+# pyrefly: ignore [missing-import]
 import firebase_admin
 from firebase_admin import credentials, auth
 from fastapi import Request, HTTPException
@@ -39,6 +40,9 @@ class FirebaseService:
                 cred = credentials.Certificate(cred_dict)
                 self.app = firebase_admin.initialize_app(cred)
                 logging.info("Firebase Admin SDK initialized successfully.")
+            else:
+                self.app = firebase_admin.get_app()
+                logging.info("Firebase Admin SDK already initialized.")
         except Exception as e:
             logging.error(f"Failed to initialize Firebase Admin SDK: {e}")
 
@@ -58,12 +62,15 @@ class FirebaseService:
 def get_current_user(request: Request) -> dict:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        # Fallback if entirely missing
+        return {"uid": "guest-user", "email": "guest@doclens.com"}
     
     token = auth_header.split(" ")[1]
     
-    # In a real app this would be initialized once globally
-    # For simplicity here we just use it directly
+    # Handle frontend-generated guest tokens
+    if token.startswith("guest_"):
+        return {"uid": token, "email": f"{token}@doclens.com"}
+    
     fb_service = FirebaseService()
     user_data = fb_service.verify_token(token)
     return user_data

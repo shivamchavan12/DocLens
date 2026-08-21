@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Command } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,38 +9,40 @@ export function Navbar() {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
 
-  if (pathname === '/login') return null;
+  // Don't show navbar in chat (has its own sidebar) or login
+  if (pathname === '/login' || pathname === '/chat') return null;
 
   return (
-    <nav className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
+    <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center">
-              <span className="font-bold text-white tracking-tighter">DL</span>
+        <div className="flex justify-between items-center h-14">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
+              <Command size={14} className="text-white" />
             </div>
-            <span className="font-semibold text-xl tracking-tight text-white">DocLens</span>
+            <span className="font-semibold text-[0.95rem] tracking-tight text-gray-900">DocLens</span>
           </Link>
 
           <div className="flex items-center gap-4">
             {user ? (
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-neutral-400 hidden sm:block">{user.email}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-[0.85rem] font-medium text-gray-600 hidden sm:block">{user.email}</span>
+                <div className="h-4 w-[1px] bg-gray-200 hidden sm:block"></div>
                 <button
                   onClick={signOut}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors text-sm text-neutral-300 hover:text-white"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-[0.85rem] font-medium text-gray-500 hover:text-gray-900"
                 >
-                  <LogOut size={16} />
-                  <span>Sign Out</span>
+                  <LogOut size={14} />
+                  <span>Sign out</span>
                 </button>
               </div>
             ) : (
               <Link
                 href="/login"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors text-sm font-medium text-white"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors text-[0.85rem] font-medium text-white shadow-sm"
               >
-                <User size={16} />
-                <span>Sign In</span>
+                <User size={14} />
+                <span>Sign in</span>
               </Link>
             )}
           </div>

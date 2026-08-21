@@ -21,11 +21,11 @@ class AnswerGenerationEngine:
         # Initialize the available engines
         self.primary_engine = GeminiService(executor=self.executor)
         
-        try:
-            self.fallback_llm = OpenSourceLLMEngine()
-        except Exception as e:
-            logging.error(f"Failed to load Hugging Face models: {e}. OpenSourceLLMEngine won't be available.")
-            self.fallback_llm = None
+        # try:
+        #     self.fallback_llm = OpenSourceLLMEngine()
+        # except Exception as e:
+        #     logging.error(f"Failed to load Hugging Face models: {e}. OpenSourceLLMEngine won't be available.")
+        self.fallback_llm = None
             
         self.rule_based_engine = RuleBasedAnswerEngine(executor=self.executor)
         

@@ -58,3 +58,28 @@ class MistralApiLLMEngine:
         except Exception as e:
             logging.error(f"Error generating text with Mistral: {e}")
             return ""
+
+    async def generate_json(self, prompt: str) -> dict:
+        """
+        Generates a structured JSON response from the Mistral API.
+        """
+        import json
+        loop = asyncio.get_event_loop()
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            
+            response = await loop.run_in_executor(
+                self.executor,
+                functools.partial(
+                    self.client.chat.complete,
+                    model=Config.MISTRAL_MODEL_NAME,
+                    messages=messages,
+                    temperature=0.1,
+                    response_format={"type": "json_object"}
+                )
+            )
+            response_text = response.choices[0].message.content.strip()
+            return json.loads(response_text)
+        except Exception as e:
+            logging.error(f"Error generating JSON with Mistral: {e}")
+            return {}

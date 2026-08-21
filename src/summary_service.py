@@ -4,6 +4,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from src.gemini_llm_engine import GeminiService
+from src.mistral_api_llm_engine import MistralApiLLMEngine, MISTRAL_AVAILABLE
 from src.document_text_extractor import DocumentTextExtractor
 from src.embedding_generator import EmbeddingGenerator
 from src.faiss_vector_store import FAISSVectorStore
@@ -12,9 +13,10 @@ class SummaryService:
     def __init__(self, executor: ThreadPoolExecutor = None):
         self.executor = executor or ThreadPoolExecutor(max_workers=4)
         self.gemini = GeminiService(executor=self.executor)
+        self.mistral = MistralApiLLMEngine(executor=self.executor) if MISTRAL_AVAILABLE else None
         self.doc_extractor = DocumentTextExtractor()
         self.embedding_generator = EmbeddingGenerator()
-        self.vector_store = FAISSVectorStore(embedding_generator=self.embedding_generator)
+        self.vector_store = FAISSVectorStore(dimension=self.embedding_generator.get_embedding_dimension())
         
         logging.info("SummaryService initialized.")
 
@@ -28,13 +30,16 @@ class SummaryService:
         logging.info(f"Processing document for summary: {file_path}")
         
         # 1. Extraction
-        extraction_result = await self.doc_extractor.process_document(file_path)
-        if "error" in extraction_result:
-            raise ValueError(f"Extraction failed: {extraction_result['error']}")
-            
-        full_text = extraction_result["full_text"]
-        chunks = extraction_result["chunks"]
-        doc_type = extraction_result.get("detected_type", "unknown")
+        chunks = []
+        full_text = ""
+        doc_type = "unknown"
+        
+        try:
+            async for chunk in self.doc_extractor.process_document(file_path):
+                chunks.append(chunk)
+                full_text += chunk.get("text", "") + " "
+        except Exception as e:
+            raise ValueError(f"Extraction failed: {str(e)}")
         
         # We optionally save to vector store if we want to do Q&A right after
         # But this function only returns the summary data
@@ -50,46 +55,48 @@ class SummaryService:
                     "items": {"type": "STRING"},
                     "description": "3-7 bullet points of the most critical information"
                 },
-                "main_ideas": {
-                    "type": "ARRAY", 
-                    "items": {"type": "STRING"},
-                    "description": "High-level concepts and themes discussed"
-                },
-                "improvement_suggestions": {
-                    "type": "ARRAY", 
-                    "items": {"type": "STRING"},
-                    "description": "Actionable feedback, gaps, or areas for review based on the text"
-                },
                 "document_type": {"type": "STRING", "description": "The category of the document content"},
                 "confidence": {"type": "NUMBER", "description": "Confidence score 0.0 to 1.0"}
             },
-            "required": ["summary", "summary_length", "key_points", "main_ideas", "document_type", "confidence"]
+            "required": ["summary", "summary_length", "key_points", "document_type", "confidence"]
         }
         
         length_instruction = {
-            "short": "Provide a concise 1-2 paragraph overview.",
-            "medium": "Provide a balanced summary covering major sections, around 3-4 paragraphs.",
-            "long": "Provide a highly detailed, comprehensive summary preserving context, explanations, and relationships."
+            "short": "Provide a strictly ultra-concise executive summary (maximum 3 sentences or 50 words). Cut out all fluff and get straight to the point.",
+            "medium": "Provide a standard executive summary (about 2-3 paragraphs, 150-250 words) that captures the core essence, major themes, and significant conclusions.",
+            "long": "Provide an exhaustive, highly detailed summary (at least 4-5 paragraphs, 400+ words). Deeply analyze every major section, preserve critical data points, and explain the relationships between key concepts comprehensively."
         }.get(summary_length, "medium")
         
         prompt = f"""You are a professional document analysis assistant. Read the following document and extract a structured analysis.
         
 Instruction for Summary Length ({summary_length}): {length_instruction}
 
+IMPORTANT: You must return ONLY valid JSON matching the following structure:
+{{
+  "summary": "The requested summary of the document following the length instructions exactly (string)",
+  "summary_length": "{summary_length}",
+  "key_points": ["point 1", "point 2", "point 3"],
+  "document_type": "The category of the document content (string)",
+  "confidence": 0.95
+}}
+
 DOCUMENT CONTENT:
-{full_text[:30000]} # Limit to avoid token issues for huge documents
+{full_text[:30000]}
 """
         
-        summary_data = await self.gemini.generate_json(prompt, schema=summary_schema)
+        summary_data = await self.gemini.generate_json(prompt)
         
-        # Fallback if generation failed
+        # Fallback to Mistral if Gemini fails
+        if not summary_data and self.mistral:
+            logging.warning("Gemini failed to generate summary, falling back to Mistral API...")
+            summary_data = await self.mistral.generate_json(prompt)
+        
+        # Fallback if generation failed entirely
         if not summary_data:
             summary_data = {
                 "summary": "Summary generation failed.",
                 "summary_length": summary_length,
                 "key_points": [],
-                "main_ideas": [],
-                "improvement_suggestions": [],
                 "document_type": doc_type,
                 "confidence": 0.0
             }

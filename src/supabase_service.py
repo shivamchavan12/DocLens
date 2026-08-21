@@ -81,8 +81,8 @@ class SupabaseService:
 
     def delete_document(self, user_id: str, doc_id: str) -> bool:
         if self.client:
-            response = self.client.table("documents").delete().eq("id", doc_id).eq("firebase_user_id", user_id).execute()
-            return len(response.data) > 0
+            self.client.table("documents").delete().eq("id", doc_id).eq("firebase_user_id", user_id).execute()
+            return True
         else:
             if doc_id in self.mock_db["documents"] and self.mock_db["documents"][doc_id]["firebase_user_id"] == user_id:
                 del self.mock_db["documents"][doc_id]

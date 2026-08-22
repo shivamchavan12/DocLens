@@ -34,22 +34,27 @@ class EmbeddingGenerator:
         texts = [chunk['text'][:8000] for chunk in chunks]
         
         loop = asyncio.get_event_loop()
-        all_embeddings = []
         
-        # Batch chunks to avoid hitting Gemini's per-request payload limits (e.g., 50 chunks per batch)
-        batch_size = 50
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:i + batch_size]
-            response = await loop.run_in_executor(
-                self.executor,
-                functools.partial(
-                    genai.embed_content,
-                    model=self.model_name,
-                    content=batch_texts,
-                    task_type="retrieval_document"
+        async def embed_single(text: str):
+            try:
+                response = await loop.run_in_executor(
+                    self.executor,
+                    functools.partial(
+                        genai.embed_content,
+                        model=self.model_name,
+                        content=text,
+                        task_type="retrieval_document"
+                    )
                 )
-            )
-            all_embeddings.extend(response['embedding'])
+                return response['embedding']
+            except Exception as e:
+                logging.error(f"Failed to embed chunk: {e}")
+                # Return zero vector on failure to avoid breaking the array shape
+                return [0.0] * 768
+
+        # Process all chunks concurrently
+        tasks = [embed_single(text) for text in texts]
+        all_embeddings = await asyncio.gather(*tasks)
             
         logging.info("Gemini embeddings generated successfully.")
         return np.array(all_embeddings, dtype=np.float32)

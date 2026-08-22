@@ -68,6 +68,31 @@ A seamless frontend UI allows users to instantly translate their Intelligence Su
     *   `faiss-cpu` (Vector Database)
 *   **Document Processing:** `PyMuPDF` (fitz), `pytesseract`, `python-docx`, `python-pptx`, `pandas`, `BeautifulSoup4`.
 
+### 🔄 Backend Pipeline Flow
+
+```mermaid
+graph TD
+    A[Client Uploads Document] -->|POST /upload| B(FastAPI Router)
+    B --> C{Determine File Type}
+    
+    C -->|PDF/Image| D[Tesseract & Fitz Extraction]
+    C -->|Word/PPT| E[XML/Shape Extraction & OCR]
+    C -->|Excel/Text| F[Pandas/Text Parsing]
+    
+    D & E & F --> G[Raw Extracted Text]
+    
+    G --> H[Summary Service]
+    H -->|Prompt Gemini| I[Generate AI Summary & Metadata]
+    I -->|Fallback to Mistral if Failed| J[Final Summary JSON]
+    
+    G --> K[Embedding Generator]
+    K -->|SentenceTransformers| L[Chunk Vectors]
+    L --> M[(FAISS Vector DB)]
+    
+    J & M --> N[Save State to Supabase]
+    N --> O[Return Data to Frontend]
+```
+
 ---
 
 ## 💻 Local Development Setup

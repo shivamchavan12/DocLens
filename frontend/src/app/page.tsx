@@ -3,12 +3,14 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   UploadCloud,
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthModal } from "@/components/AuthModal";
@@ -85,9 +87,16 @@ export default function Dashboard() {
     <>
       <div className="max-w-6xl mx-auto px-6 lg:px-8 py-10 space-y-10">
         {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Knowledge Base</h1>
-          <p className="text-[0.95rem] text-gray-500 mt-1">Upload documents to extract intelligence and chat with their contents.</p>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center relative flex items-center justify-center">
+          <div className="absolute right-0 top-0">
+            <Link href="/about" className="text-gray-400 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-gray-100 flex" title="About DocLens">
+              <Info className="w-6 h-6" />
+            </Link>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Knowledge Base</h1>
+            <p className="text-[0.95rem] text-gray-500 mt-1">Upload documents to extract intelligence and chat with their contents.</p>
+          </div>
         </motion.div>
 
         {/* Upload Card */}

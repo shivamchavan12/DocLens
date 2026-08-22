@@ -16,7 +16,7 @@ class EmbeddingGenerator:
     Manages the generation of embeddings using Gemini API instead of heavy local models.
     This saves ~400MB of RAM and prevents Out Of Memory crashes on Render.
     """
-    def __init__(self, model_name: str = "models/embedding-001", device: str = "cpu", executor: ThreadPoolExecutor = None):
+    def __init__(self, model_name: str = "models/text-embedding-004", device: str = "cpu", executor: ThreadPoolExecutor = None):
         self.model_name = model_name
         self.max_tokens = 2000 # Gemini handles larger contexts easily
         self.executor = executor

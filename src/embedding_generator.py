@@ -50,7 +50,7 @@ class EmbeddingGenerator:
             except Exception as e:
                 logging.error(f"Failed to embed chunk: {e}")
                 # Return zero vector on failure to avoid breaking the array shape
-                return [0.0] * 768
+                return [0.0] * 3072
 
         # Process all chunks concurrently
         tasks = [embed_single(text) for text in texts]
@@ -80,5 +80,5 @@ class EmbeddingGenerator:
         return np.dot(embedding1, embedding2) / (np.linalg.norm(embedding1) * np.linalg.norm(embedding2))
     
     def get_embedding_dimension(self) -> int:
-        return 768  # Gemini embedding dimension
+        return 3072  # Gemini embedding-001 dimension
 

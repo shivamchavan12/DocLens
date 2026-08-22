@@ -359,25 +359,31 @@ class DocumentTextExtractor:
         try:
             image = Image.open(image_bytes)
             
-            # 1. OPTIMIZED AI CLOUD OCR (Gemini 1.5 Flash Vision)
+            # 1. OPTIMIZED AI CLOUD OCR (Gemini Vision)
             from config import Config
             api_key = Config.get_gemini_key()
             if api_key:
                 try:
                     import google.generativeai as genai
                     genai.configure(api_key=api_key)
-                    # Use Flash for lightning fast OCR
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(
-                        [image, "You are a pure OCR engine. Extract all the text from this image exactly as written. If there is no text, reply with exactly NO_TEXT"],
-                        generation_config=genai.types.GenerationConfig(temperature=0.0)
-                    )
+                    # Use the latest flash model dynamically
+                    try:
+                        model = genai.GenerativeModel('gemini-flash-latest')
+                        response = model.generate_content(
+                            [image, "You are a pure OCR engine. Extract all the text from this image exactly as written. If there is no text, reply with exactly NO_TEXT"],
+                            generation_config=genai.types.GenerationConfig(temperature=0.0)
+                        )
+                    except Exception as e1:
+                        logging.warning(f"gemini-flash-latest failed ({e1}), falling back to gemini-3.5-flash")
+                        model = genai.GenerativeModel('gemini-3.5-flash')
+                        response = model.generate_content([image, "Extract all the text from this image exactly as written. If there is no text, reply with exactly NO_TEXT"])
+                        
                     text = response.text.strip()
                     if text and text != "NO_TEXT":
                         return text
                     return ""
                 except Exception as e:
-                    logging.warning(f"Gemini Vision OCR failed, falling back to local Tesseract: {e}")
+                    logging.warning(f"Gemini Vision OCR failed entirely, falling back to local Tesseract: {e}")
             
             # 2. LOCAL FALLBACK (Tesseract on weak CPU)
             max_size = 1200

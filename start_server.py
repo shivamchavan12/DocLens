@@ -7,7 +7,7 @@ import logging
 import asyncio
 from typing import List, Dict, Any
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Path
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Path, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
@@ -48,6 +48,7 @@ async def lifespan(app: FastAPI):
     app.state.query_processor = QueryResolver(app.state.embedding_engine, app.state.vector_store)
     app.state.answer_engine = AnswerGenerationEngine()
     app.state.validator = InputValidator()
+    app.state.embedding_status = {}
     
     yield
     
@@ -73,62 +74,86 @@ app.add_middleware(
 # DocLens Endpoints
 # -------------------------------------------------------------------------
 
+async def process_embeddings_background(doc_id: str, chunks: List[Dict], vector_store, embedding_engine, status_dict):
+    try:
+        logging.info(f"Background task starting for doc {doc_id}: generating embeddings.")
+        await vector_store.clear()
+        embeddings = await embedding_engine.generate_embeddings(chunks)
+        await vector_store.add_documents(chunks, embeddings)
+        logging.info(f"Background embeddings stored successfully for doc {doc_id}.")
+        status_dict[doc_id] = "ready"
+    except Exception as e:
+        import traceback
+        logging.error(f"Background embedding failed for {doc_id}: {e}")
+        logging.error(traceback.format_exc())
+        status_dict[doc_id] = "failed"
+
 @app.post("/api/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(
-    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(None),
+    url: str = Form(None),
     summary_length: str = Form("medium"),
     user: dict = Depends(get_current_user)
 ):
     """
-    Uploads a document, extracts text (OCR if needed), and generates a summary.
-    Saves the result to Supabase associated with the authenticated user.
+    Uploads a document OR processes a URL, extracts text, and generates a summary.
+    Saves the result to Supabase and immediately returns. Embeddings happen in background.
     """
     if summary_length not in ["short", "medium", "long"]:
         raise HTTPException(status_code=400, detail="summary_length must be short, medium, or long")
+    
+    if not file and not url:
+        raise HTTPException(status_code=400, detail="Must provide either a file or a url")
         
     request_start_time = time.time()
     tmp_path = None
+    doc_uri = None
+    filename = "url_document"
+    suffix = ".txt"
     
     try:
-        # Validate file
-        suffix = os.path.splitext(file.filename or "upload")[1] or ".bin"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            shutil.copyfileobj(file.file, tmp)
-            tmp_path = tmp.name
-
-        doc_uri = tmp_path
+        if file:
+            filename = file.filename
+            suffix = os.path.splitext(filename or "upload")[1] or ".bin"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                shutil.copyfileobj(file.file, tmp)
+                tmp_path = tmp.name
+            doc_uri = tmp_path
+        elif url:
+            doc_uri = url
+            filename = url.split("/")[-1] if "/" in url else url
+            suffix = ".url"
         
         # Process and summarize
         result = await app.state.summary_service.process_and_summarize(doc_uri, summary_length)
         
         # Save to DB
         doc_data = {
-            "filename": file.filename,
+            "filename": filename,
             "file_type": suffix,
             "summary_data": result["summary_data"]
         }
         
         doc_id = supabase_service.save_document(user["uid"], doc_data)
         
-        # Attempt to generate embeddings for chat (non-critical)
-        chat_available = False
-        try:
-            await app.state.vector_store.clear()
-            embeddings = await app.state.embedding_engine.generate_embeddings(result["chunks"])
-            await app.state.vector_store.add_documents(result["chunks"], embeddings)
-            chat_available = True
-            logging.info("Embeddings generated and stored successfully.")
-        except Exception as embed_err:
-            import traceback
-            logging.warning(f"Embedding generation failed (chat disabled for this doc): {embed_err}")
-            logging.warning(traceback.format_exc())
+        # Hand off embeddings to background task
+        app.state.embedding_status[doc_id] = "processing"
+        background_tasks.add_task(
+            process_embeddings_background,
+            doc_id,
+            result["chunks"],
+            app.state.vector_store,
+            app.state.embedding_engine,
+            app.state.embedding_status
+        )
         
-        logging.info(f"Upload complete in {time.time() - request_start_time:.2f}s (chat_available={chat_available})")
+        logging.info(f"Upload complete in {time.time() - request_start_time:.2f}s (summary returned instantly)")
         return DocumentUploadResponse(
             document_id=doc_id,
             filename=file.filename,
             summary_data=result["summary_data"],
-            chat_available=chat_available
+            chat_available=False # Let frontend poll for status
         )
         
     except Exception as e:
@@ -139,6 +164,12 @@ async def upload_document(
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+@app.get("/api/documents/{doc_id}/status")
+async def get_document_status(doc_id: str):
+    """Check if the background embeddings are ready for a document."""
+    status = app.state.embedding_status.get(doc_id, "unknown")
+    return {"doc_id": doc_id, "status": status}
 
 
 @app.get("/api/documents", response_model=DocumentListResponse)

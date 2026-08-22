@@ -34,25 +34,27 @@ class EmbeddingGenerator:
         texts = [chunk['text'][:8000] for chunk in chunks]
         
         loop = asyncio.get_event_loop()
+        semaphore = asyncio.Semaphore(4) # Limit concurrent threads
         
         async def embed_single(text: str):
-            try:
-                response = await loop.run_in_executor(
-                    self.executor,
-                    functools.partial(
-                        genai.embed_content,
-                        model=self.model_name,
-                        content=text,
-                        task_type="retrieval_document"
+            async with semaphore:
+                try:
+                    response = await loop.run_in_executor(
+                        self.executor,
+                        functools.partial(
+                            genai.embed_content,
+                            model=self.model_name,
+                            content=text,
+                            task_type="retrieval_document"
+                        )
                     )
-                )
-                return response['embedding']
-            except Exception as e:
-                logging.error(f"Failed to embed chunk: {e}")
-                # Return zero vector on failure to avoid breaking the array shape
-                return [0.0] * 3072
+                    return response['embedding']
+                except Exception as e:
+                    logging.error(f"Failed to embed chunk: {e}")
+                    # Return zero vector on failure to avoid breaking the array shape
+                    return [0.0] * 3072
 
-        # Process all chunks concurrently
+        # Process all chunks concurrently but limited by semaphore
         tasks = [embed_single(text) for text in texts]
         all_embeddings = await asyncio.gather(*tasks)
             

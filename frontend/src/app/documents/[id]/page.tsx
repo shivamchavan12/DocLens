@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
   ArrowLeft,
@@ -14,14 +14,14 @@ import {
   File,
   Copy,
   Check,
-  Globe,
+  MessageCircle,
+  X,
   Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { AuthModal } from "@/components/AuthModal";
 
 export default function DocumentWorkspace() {
-  const { user, loading, isGuest } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const docId = params.id as string;
@@ -30,7 +30,9 @@ export default function DocumentWorkspace() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
+  const [embeddingStatus, setEmbeddingStatus] = useState<"processing" | "ready" | "failed" | "unknown">("unknown");
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,9 +42,44 @@ export default function DocumentWorkspace() {
     }
   }, [user, loading, docId]);
 
+  // Polling for embedding status
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
+    if (!docId) return;
+    
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/documents/${docId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmbeddingStatus(data.status);
+          if (data.status === "ready" || data.status === "failed") {
+            return true; // stop polling
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check status:", err);
+      }
+      return false;
+    };
+
+    // Check immediately
+    checkStatus().then(done => {
+      if (!done) {
+        // Start polling every 3 seconds if not done
+        const interval = setInterval(async () => {
+          const isDone = await checkStatus();
+          if (isDone) clearInterval(interval);
+        }, 3000);
+        return () => clearInterval(interval);
+      }
+    });
+  }, [docId]);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory, isChatOpen]);
 
   const loadDocument = async () => {
     try {
@@ -98,17 +135,7 @@ export default function DocumentWorkspace() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-
-
-  if (!doc) {
+  if (loading || !doc) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -117,12 +144,12 @@ export default function DocumentWorkspace() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gray-50/50 relative overflow-hidden">
       {/* Breadcrumb Header */}
       <motion.div
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2 px-6 lg:px-8 py-4 border-b border-gray-200 bg-white shrink-0"
+        className="flex items-center gap-2 px-6 lg:px-8 py-4 border-b border-gray-200 bg-white shrink-0 sticky top-0 z-10 shadow-sm"
       >
         <button
           onClick={() => router.push("/")}
@@ -143,43 +170,46 @@ export default function DocumentWorkspace() {
         </div>
       </motion.div>
 
-      {/* Main Content */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-0 min-h-0 overflow-hidden">
-        {/* Left: Summary */}
-        <div className="border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-          <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <Sparkles className="text-indigo-600 w-4 h-4" />
-              <h2 className="text-[0.95rem] font-semibold text-gray-900">Intelligence Summary</h2>
+      {/* Main Centered Content */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-12">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+        >
+          <div className="p-8 lg:p-12 flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 border border-indigo-100/50">
+              <Sparkles className="w-6 h-6 text-indigo-600" />
             </div>
-            <div className="flex items-center gap-3">
-              {/* Translate dropdown will go here */}
-              <span className="text-[0.7rem] font-semibold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-indigo-100">
-                {doc.summary_length}
+            
+            <h1 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight">Intelligence Summary</h1>
+            
+            <div className="mb-8">
+              <span className="text-[0.7rem] font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full uppercase tracking-wider border border-indigo-100">
+                {doc.summary_length} Output
               </span>
             </div>
-          </div>
 
-          <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 flex-1">
-            <section>
-              <h3 className="text-[0.75rem] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <section className="w-full text-left mb-10">
+              <h3 className="text-[0.75rem] font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center justify-center gap-2">
                 <File className="w-3 h-3" />
                 Executive Summary
               </h3>
-              <div className="text-[0.9rem] text-gray-700 leading-relaxed whitespace-pre-wrap">
+              <div className="text-[1.05rem] text-gray-700 leading-relaxed whitespace-pre-wrap text-justify">
                 {renderMd(doc.summary)}
               </div>
             </section>
 
             {doc.key_points && doc.key_points.length > 0 && (
-              <section>
-                <h3 className="text-[0.75rem] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <section className="w-full text-left bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                <h3 className="text-[0.75rem] font-semibold text-gray-400 uppercase tracking-wider mb-4 text-center">
                   Key Points
                 </h3>
-                <ul className="space-y-3">
+                <ul className="space-y-4">
                   {doc.key_points.map((pt: string, i: number) => (
-                    <li key={i} className="flex gap-3 text-[0.9rem] text-gray-700 leading-relaxed">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <li key={i} className="flex gap-4 items-start text-[1rem] text-gray-700 leading-relaxed">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                       <span>{pt}</span>
                     </li>
                   ))}
@@ -187,71 +217,118 @@ export default function DocumentWorkspace() {
               </section>
             )}
 
-            <section className="pt-4 border-t border-gray-100">
-              <h3 className="text-[0.75rem] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Metadata
-              </h3>
-              <div className="text-[0.85rem] text-gray-500 space-y-1">
+            <section className="w-full pt-8 mt-10 border-t border-gray-100">
+              <div className="text-[0.85rem] text-gray-400 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <p>Uploaded: {new Date(doc.upload_timestamp).toLocaleString()}</p>
-                <p>
-                  ID: <span className="font-mono text-[0.8rem]">{doc.id}</span>
-                </p>
+                <span className="hidden sm:inline">•</span>
+                <p>ID: <span className="font-mono text-[0.8rem]">{doc.id}</span></p>
               </div>
             </section>
           </div>
-        </div>
+        </motion.div>
+      </div>
 
-        {/* Right: Q&A Chat */}
-        <div className="flex flex-col bg-gray-50/50 overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-white shrink-0">
-            <h2 className="text-[0.95rem] font-semibold text-gray-900">Document Q&A</h2>
-            <p className="text-[0.8rem] text-gray-500">Ask questions about the document content</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-            {chatHistory.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                <Sparkles className="w-6 h-6 mb-2 opacity-40" />
-                <p className="text-[0.9rem]">Ask anything about this document.</p>
-              </div>
-            ) : (
-              chatHistory.map((msg, i) => (
-                <ChatBubble key={i} msg={msg} renderMd={renderMd} />
-              ))
-            )}
-            {isAsking && (
-              <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 shadow-sm rounded-2xl rounded-bl-sm px-4 py-3.5 flex gap-1.5 items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot [animation-delay:0.2s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot [animation-delay:0.4s]" />
+      {/* Floating Chat Agent */}
+      <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start justify-end">
+        <AnimatePresence>
+          {isChatOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="mb-4 w-[350px] sm:w-[400px] h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+            >
+              <div className="p-4 bg-indigo-600 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-200" />
+                  <h3 className="font-semibold text-sm">DocLens AI</h3>
                 </div>
+                <button onClick={() => setIsChatOpen(false)} className="text-indigo-200 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
 
-          {/* Chat Input */}
-          <div className="p-4 bg-white border-t border-gray-200 shrink-0">
-            <form onSubmit={handleAskQuestion} className="relative">
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask about this document..."
-                disabled={isAsking}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-12 py-3 text-[0.9rem] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={!question.trim() || isAsking}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
-        </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 custom-scrollbar">
+                {chatHistory.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 text-center px-4">
+                    <MessageCircle className="w-8 h-8 mb-3 opacity-40" />
+                    <p className="text-[0.9rem]">Ask me anything about this document. I have already read it for you.</p>
+                  </div>
+                ) : (
+                  chatHistory.map((msg, i) => (
+                    <ChatBubble key={i} msg={msg} renderMd={renderMd} />
+                  ))
+                )}
+                {isAsking && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-gray-200 shadow-sm rounded-2xl rounded-bl-sm px-4 py-3.5 flex gap-1.5 items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot [animation-delay:0.2s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse-dot [animation-delay:0.4s]" />
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              <div className="p-3 bg-white border-t border-gray-100 shrink-0">
+                <form onSubmit={handleAskQuestion} className="relative">
+                  <input
+                    type="text"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Type your question..."
+                    disabled={isAsking}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-10 py-2.5 text-[0.9rem] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!question.trim() || isAsking}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating Toggle Button */}
+        <button
+          onClick={() => embeddingStatus === "ready" && setIsChatOpen(!isChatOpen)}
+          disabled={embeddingStatus === "processing"}
+          className={`flex items-center gap-3 px-5 py-3.5 rounded-full shadow-xl text-sm font-semibold transition-all transform hover:scale-105 active:scale-95 ${
+            embeddingStatus === "ready"
+              ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+              : embeddingStatus === "failed"
+              ? "bg-red-50 text-red-600 border border-red-200"
+              : "bg-white text-gray-600 border border-gray-200 cursor-wait"
+          }`}
+        >
+          {embeddingStatus === "processing" ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+              <span>Initializing AI...</span>
+            </>
+          ) : embeddingStatus === "failed" ? (
+            <>
+              <X className="w-5 h-5" />
+              <span>Chat Unavailable</span>
+            </>
+          ) : isChatOpen ? (
+            <>
+              <X className="w-5 h-5" />
+              <span>Close AI</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-5 h-5" />
+              <span>Chat with DocLens</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

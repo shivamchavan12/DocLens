@@ -7,11 +7,17 @@ from concurrent.futures import ThreadPoolExecutor
 from config import Config # Import Config
 
 try:
-    from mistralai import Mistral
+    # Try Mistral v2.0+ SDK import first
+    from mistralai.client import Mistral
     MISTRAL_AVAILABLE = True
-except ImportError as e:
-    logging.error("Failed to import mistralai. This is unexpected.")
-    MISTRAL_AVAILABLE = False
+except ImportError:
+    try:
+        # Fallback to Mistral v1.x SDK import
+        from mistralai import Mistral
+        MISTRAL_AVAILABLE = True
+    except ImportError as e:
+        logging.error("Failed to import mistralai. This is unexpected.")
+        MISTRAL_AVAILABLE = False
 
 class MistralApiLLMEngine:
     """

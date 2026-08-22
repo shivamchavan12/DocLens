@@ -44,6 +44,25 @@ export const api = {
     return response.json();
   },
 
+  async uploadUrl(url: string, summaryLength: 'short' | 'medium' | 'long') {
+    const formData = new FormData();
+    formData.append('url', url);
+    formData.append('summary_length', summaryLength);
+
+    const headers = await getAuthHeaders();
+    
+    const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`URL Upload failed: ${await response.text()}`);
+    }
+    return response.json();
+  },
+
   async getDocuments() {
     const headers = await getAuthHeaders();
     

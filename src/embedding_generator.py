@@ -31,23 +31,28 @@ class EmbeddingGenerator:
         if not chunks:
             return np.array([])
             
-        texts = [chunk['text'][:8000] for chunk in chunks] # Rough truncation
+        texts = [chunk['text'][:8000] for chunk in chunks]
         
         loop = asyncio.get_event_loop()
-        # Call Gemini Embedding API
-        response = await loop.run_in_executor(
-            self.executor,
-            functools.partial(
-                genai.embed_content,
-                model=self.model_name,
-                content=texts,
-                task_type="retrieval_document"
-            )
-        )
+        all_embeddings = []
         
-        embeddings = response['embedding']
+        # Batch chunks to avoid hitting Gemini's per-request payload limits (e.g., 50 chunks per batch)
+        batch_size = 50
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            response = await loop.run_in_executor(
+                self.executor,
+                functools.partial(
+                    genai.embed_content,
+                    model=self.model_name,
+                    content=batch_texts,
+                    task_type="retrieval_document"
+                )
+            )
+            all_embeddings.extend(response['embedding'])
+            
         logging.info("Gemini embeddings generated successfully.")
-        return np.array(embeddings, dtype=np.float32)
+        return np.array(all_embeddings, dtype=np.float32)
     
     async def generate_query_embedding(self, query: str) -> np.ndarray:
         logging.info(f"Generating query embedding for: {query[:50]}...")

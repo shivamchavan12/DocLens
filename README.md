@@ -2,6 +2,10 @@
 
 ![DocLens Banner](https://img.shields.io/badge/Status-Active-brightgreen.svg) ![Python](https://img.shields.io/badge/Backend-FastAPI_&_Python_3.12-blue.svg) ![NextJS](https://img.shields.io/badge/Frontend-Next.js_14-black.svg) ![AI](https://img.shields.io/badge/AI-Gemini_&_Mistral-orange.svg)
 
+🚀 **Live Demo:** [doc-lens-tau.vercel.app](https://doc-lens-tau.vercel.app/)
+
+> ⚠️ **Note for Recruiters & Evaluators:** The core architecture of this platform is heavily optimized for zero-latency execution. However, the Live Demo backend is currently hosted on Render's **Free Tier (0.1 vCPU / 512MB RAM)**. Due to these severe hardware constraints, document processing and OCR times on the live demo will be artificially slower than the actual code capabilities. When run locally or on standard production hardware, processing is near-instantaneous.
+
 **DocLens** is an enterprise-grade, high-performance document intelligence platform. It allows users to instantly upload documents of virtually any format, generate deep analytical summaries, securely chat with their data using Retrieval-Augmented Generation (RAG), and translate insights into over 25+ global languages—all wrapped in a stunning, frictionless Next.js user interface.
 
 ---

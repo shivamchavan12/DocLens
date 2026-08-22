@@ -15,8 +15,11 @@ class Config:
     def get_gemini_key(cls) -> Optional[str]:
         """Returns a random available Gemini API key for load balancing."""
         import random
-        keys = [k for k in [cls.GEMINI_API_KEY, cls.GEMINI_API_KEY_2, cls.GEMINI_API_KEY_3] 
-                if k and k != 'your-gemini-api-key']
+        keys = [k for k in [
+            cls.GEMINI_API_KEY, 
+            os.getenv('GEMINI_API_KEY_2'), 
+            os.getenv('GEMINI_API_KEY_3')
+        ] if k and k != 'your-gemini-api-key']
         return random.choice(keys) if keys else None
 
     # Firebase Admin SDK (Backend)

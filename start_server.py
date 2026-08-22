@@ -110,21 +110,31 @@ async def upload_document(
         
         doc_id = supabase_service.save_document(user["uid"], doc_data)
         
-        # Also cache the document in the vector store so we can chat immediately
-        # In a real app we'd load this on demand per document ID
-        await app.state.vector_store.clear()
-        embeddings = await app.state.embedding_engine.generate_embeddings(result["chunks"])
-        await app.state.vector_store.add_documents(result["chunks"], embeddings)
+        # Attempt to generate embeddings for chat (non-critical)
+        chat_available = False
+        try:
+            await app.state.vector_store.clear()
+            embeddings = await app.state.embedding_engine.generate_embeddings(result["chunks"])
+            await app.state.vector_store.add_documents(result["chunks"], embeddings)
+            chat_available = True
+            logging.info("Embeddings generated and stored successfully.")
+        except Exception as embed_err:
+            import traceback
+            logging.warning(f"Embedding generation failed (chat disabled for this doc): {embed_err}")
+            logging.warning(traceback.format_exc())
         
-        logging.info(f"Upload complete in {time.time() - request_start_time:.2f}s")
+        logging.info(f"Upload complete in {time.time() - request_start_time:.2f}s (chat_available={chat_available})")
         return DocumentUploadResponse(
             document_id=doc_id,
             filename=file.filename,
-            summary_data=result["summary_data"]
+            summary_data=result["summary_data"],
+            chat_available=chat_available
         )
         
     except Exception as e:
+        import traceback
         logging.error(f"Error processing upload: {e}")
+        logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if tmp_path and os.path.exists(tmp_path):

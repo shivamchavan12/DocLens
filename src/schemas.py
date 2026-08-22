@@ -26,6 +26,7 @@ class DocumentUploadResponse(BaseModel):
     document_id: str
     filename: str
     summary_data: SummaryResponse
+    chat_available: bool = True
 
 class DocumentDetail(BaseModel):
     id: str

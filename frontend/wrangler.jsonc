@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "doclens",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true
+    }
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "doclens"
+    }
+  ],
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://mqgjxsfmmolzcmcmweic.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xZ2p4c2ZtbW9semNtY213ZWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMTg5MzcsImV4cCI6MjEwMjc5NDkzN30.HXRn8XgLhBuyRE2yW_TsPDgagaLvVRDE1uFVJZI-ACg",
+    "NEXT_PUBLIC_FIREBASE_API_KEY": "AIzaSyCefsPKcvbXKVYRUItiN6w5KHDJvA98P_I",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "doclens-a7cb1.firebaseapp.com",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "doclens-a7cb1",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "doclens-a7cb1.firebasestorage.app",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "271387052560",
+    "NEXT_PUBLIC_FIREBASE_APP_ID": "1:271387052560:web:909edc6692158a9ec81895",
+    "NEXT_PUBLIC_API_URL": "https://doclens-backend.onrender.com"
+  }
+}

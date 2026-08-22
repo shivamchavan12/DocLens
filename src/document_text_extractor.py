@@ -353,24 +353,44 @@ class DocumentTextExtractor:
 
     def _extract_image_text(self, image_bytes: BytesIO, lang: str = 'eng') -> str:
         """
-        Extracts text from an image file using Tesseract OCR.
-        Optimized for slow cloud CPUs by downscaling large images first.
+        Extracts text from an image file using Gemini Vision (blazing fast, 0 CPU cost).
+        Falls back to Tesseract OCR if Gemini fails.
         """
         try:
             image = Image.open(image_bytes)
             
-            # Optimization: Downscale massive images to speed up OCR on Render's 0.1 vCPU
+            # 1. OPTIMIZED AI CLOUD OCR (Gemini 1.5 Flash Vision)
+            api_key = os.getenv("GEMINI_API_KEY")
+            if api_key and api_key != 'your-gemini-api-key':
+                try:
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+                    # Use Flash for lightning fast OCR
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(
+                        [image, "You are a pure OCR engine. Extract all the text from this image exactly as written. If there is no text, reply with exactly NO_TEXT"],
+                        generation_config=genai.types.GenerationConfig(temperature=0.0)
+                    )
+                    text = response.text.strip()
+                    if text and text != "NO_TEXT":
+                        return text
+                    return ""
+                except Exception as e:
+                    logging.warning(f"Gemini Vision OCR failed, falling back to local Tesseract: {e}")
+            
+            # 2. LOCAL FALLBACK (Tesseract on weak CPU)
             max_size = 1200
             if image.width > max_size or image.height > max_size:
                 image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
                 
-            # Convert to grayscale to further speed up OCR
             image = image.convert('L')
-            
-            text = pytesseract.image_to_string(image, lang=lang)
+            # Add strict timeout so the server NEVER hangs indefinitely
+            text = pytesseract.image_to_string(image, lang=lang, timeout=10)
             return text
+            
         except Exception as e:
-            raise Exception(f"Error extracting image text: {str(e)}")
+            logging.error(f"Error extracting image text: {e}")
+            return ""
 
     def _extract_pptx_text(self, pptx_bytes: BytesIO, lang: str = 'eng') -> str:
         """

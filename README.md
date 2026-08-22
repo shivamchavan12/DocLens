@@ -1,464 +1,150 @@
-# DocLens - Intelligent Document Summary Assistant
+# 🔍 DocLens: Edge-AI Document Intelligence Workspace
 
-> Upload a document. Understand it instantly. Ask questions about it.
+![DocLens Banner](https://img.shields.io/badge/Status-Active-brightgreen.svg) ![Python](https://img.shields.io/badge/Backend-FastAPI_&_Python_3.12-blue.svg) ![NextJS](https://img.shields.io/badge/Frontend-Next.js_14-black.svg) ![AI](https://img.shields.io/badge/AI-Gemini_&_Mistral-orange.svg)
 
-DocLens is a production-ready Document Summary Assistant that leverages Google Gemini AI, advanced RAG (Retrieval-Augmented Generation), and OCR to extract, summarize, and answer questions about uploaded documents — all through a clean, modern interface.
-
-![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
-![Gemini](https://img.shields.io/badge/Google%20Gemini-AI-4285F4?logo=google&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-Auth-FFCA28?logo=firebase&logoColor=black)
-![Supabase](https://img.shields.io/badge/Supabase-Database-3FCF8E?logo=supabase&logoColor=white)
-![FAISS](https://img.shields.io/badge/FAISS-Vector%20Search-764ABC)
-![Tesseract](https://img.shields.io/badge/Tesseract-OCR-green)
+**DocLens** is an enterprise-grade, high-performance document intelligence platform. It allows users to instantly upload documents of virtually any format, generate deep analytical summaries, securely chat with their data using Retrieval-Augmented Generation (RAG), and translate insights into over 25+ global languages—all wrapped in a stunning, frictionless Next.js user interface.
 
 ---
 
-## Table of Contents
+## 🌟 Executive Summary & Motivation
+In the modern workflow, data is trapped inside flat files—PDFs filled with scanned images, heavily formatted Word documents, dense PowerPoints, and spreadsheets. Standard OCR tools are incredibly slow, and traditional LLM wrappers crash when dealing with complex or non-textual data. 
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [Running Locally](#running-locally)
-- [API Endpoints](#api-endpoints)
-- [Document Processing Pipeline](#document-processing-pipeline)
-- [Supported Formats](#supported-formats)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Approach](#approach)
+**DocLens solves this** by implementing a hyper-intelligent, multi-stage extraction pipeline. Instead of blindly passing documents to an AI, DocLens intelligently parses native text, isolates embedded images, targets OCR *only* where necessary, and injects the cleaned data into a local FAISS Vector Database for zero-latency querying.
 
 ---
 
-## Features
+## ✨ Comprehensive Feature Matrix
 
-### Core
+### 1. 📄 Universal Document Extraction & Parsing
+DocLens doesn't just read text; it understands file structures.
+*   **PDFs (Fitz & Tesseract):** Extracts native text effortlessly. Features an intelligent **per-page evaluation engine**—if it detects a page is a scanned image, or if it finds embedded pictures, it runs targeted OCR exclusively on those elements, skipping native text to ensure maximum speed and zero duplication.
+*   **Word Documents (.docx):** Bypasses the strict limitations of standard libraries (`python-docx`). Uses manual XML unzipping (`document.xml`) to extract paragraphs and deeply mines document relations to extract and OCR embedded images.
+*   **PowerPoint (.pptx / .ppt):** Parses slides, text boxes, tables, background fills, and picture shapes. 
+*   **Images (.png, .jpg, .tiff):** Full optical character recognition using Tesseract.
+*   **Spreadsheets (.xlsx) & Emails (.eml):** Token-optimized parsing that flattens data into readable context for the AI.
 
-- **PDF & Image Upload** — Drag-and-drop or file picker with real-time upload progress
-- **OCR Processing** — Automatic Tesseract OCR for scanned documents and images
-- **Smart Summaries** — AI-generated summaries in three lengths:
-  - **Short** — Concise overview of the most important information
-  - **Medium** — Balanced summary covering major sections and conclusions
-  - **Long** — Detailed summary preserving context, explanations, and relationships
-- **Key Points** — Bullet-point extraction of the most important information
-- **Main Ideas** — Higher-level concepts and themes from the document
-- **Improvement Suggestions** — AI-identified areas for further review or clarification
-- **Document Q&A** — Ask follow-up questions about any uploaded document using RAG
+### 2. 🧠 Dynamic AI Summarization & Intelligence
+Upload a document and receive an instant, structured analysis.
+*   **Context-Aware Lengths:** Request an *Ultra-Concise* (50 words), *Standard*, or *Exhaustive* (400+ words) summary.
+*   **Dynamic Language Detection:** The AI automatically scans the upload. If the document is purely in Hindi, Spanish, etc., the AI organically generates the summary and bullet points in that exact native language.
+*   **Actionable Insights:** Automatically extracts critical metadata, document categorization, and key bullet points.
 
-### Authentication & Persistence
+### 3. 🌍 Global Translation Engine (25+ Languages)
+A seamless frontend UI allows users to instantly translate their Intelligence Summary into major global and Indian regional languages without re-processing the document.
+*   **Global:** Spanish, French, German, Mandarin, Japanese, Russian, Arabic, and more.
+*   **Regional (India):** Hindi, Bengali, Telugu, Marathi, Tamil, Urdu, Gujarati, Kannada, Odia, Malayalam, Punjabi, Sanskrit, and others.
 
-- **Firebase Authentication** — Email/password registration and login
-- **Supabase Database** — Persistent storage for documents, summaries, and chat history
-- **User Isolation** — Each user's data is fully scoped and protected
-- **Session Persistence** — Return later and access all previous documents and conversations
+### 4. 💬 Vector-Driven RAG Chat
+*   **Local FAISS Indexing:** Documents are intelligently chunked (with token overlap) and embedded into a local FAISS vector store using high-performance HuggingFace SentenceTransformers (`all-MiniLM-L6-v2`).
+*   **Semantic Search:** Ask a question, and the engine retrieves only the top-K mathematically relevant chunks.
+*   **Source-Strict Prompting:** The LLM is strictly instructed to answer *only* using the provided context, virtually eliminating AI hallucinations.
 
-### Multi-Format Document Support
+### 5. 🛡️ High-Availability AI (Failover Architecture)
+*   **Primary Engine:** Google Gemini Pro.
+*   **Mistral Fallback:** If Gemini hits a rate limit, quota exhaustion, or a 500 error, the `AnswerGenerationEngine` gracefully and silently falls back to the **Mistral AI API**. The user never sees a disruption in service.
 
-- **PDF** — Text extraction via PyMuPDF with OCR fallback for scanned pages
-- **Images** — PNG, JPG, JPEG, TIFF, BMP with Tesseract OCR
-- **DOCX** — Microsoft Word via python-docx
-- **PPTX / PPT** — PowerPoint with embedded image OCR
-- **XLSX / XLS** — Excel via pandas/openpyxl
-- **Email / HTML** — Structured email content extraction
-- **ZIP Archives** — Safe extraction with ZIP bomb protection
-
-### UX
-
-- **Responsive Design** — Desktop, tablet, and mobile layouts
-- **Loading States** — Step-by-step processing feedback (Extracting → OCR → Summarizing → Complete)
-- **Error Handling** — User-friendly messages for unsupported files, API failures, and network issues
-- **Chat History** — Grouped by date with quick navigation
+### 6. 🚀 Frictionless "Guest Mode" Architecture
+*   Users do not need to create an account to start gaining value.
+*   The system uses silent `guest_` tokens (stored locally via `localStorage`).
+*   Documents and chat histories are saved to **Supabase (PostgreSQL)** tied to this guest token, isolating workspaces perfectly while eliminating onboarding friction.
 
 ---
 
-## Architecture
+## 🏗️ Technical Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (Next.js)                       │
-│  Login/Register → Dashboard → Upload → Document Workspace → Q&A │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ REST API + Firebase Auth Token
-┌──────────────────────────────▼──────────────────────────────────┐
-│                       BACKEND (FastAPI)                          │
-│                                                                  │
-│  ┌──────────┐   ┌──────────────┐   ┌─────────────────────────┐  │
-│  │ Firebase  │   │   Document   │   │     Gemini Service      │  │
-│  │   Auth    │   │  Extractor   │   │  (Summary / Q&A / KP)   │  │
-│  │ Verify    │   │  + OCR       │   └────────────┬────────────┘  │
-│  └──────────┘   └──────┬───────┘                 │               │
-│                         │                         │               │
-│                  ┌──────▼───────┐          ┌──────▼────────┐     │
-│                  │   Chunking   │          │  Fallback LLM │     │
-│                  │  (512w/50ov) │          │  (HF / Rules) │     │
-│                  └──────┬───────┘          └───────────────┘     │
-│                         │                                        │
-│                  ┌──────▼───────┐   ┌──────────────────────┐    │
-│                  │  Embeddings  │   │     Supabase          │    │
-│                  │ (MiniLM-L3)  │   │  (Documents, Chats,   │    │
-│                  └──────┬───────┘   │   History, Users)     │    │
-│                         │           └──────────────────────┘    │
-│                  ┌──────▼───────┐                               │
-│                  │    FAISS     │                                │
-│                  │ Vector Store │                                │
-│                  └──────────────┘                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Frontend (Client)
+*   **Framework:** Next.js (App Router) + React 19
+*   **Styling:** Tailwind CSS + Framer Motion (for liquid-smooth micro-animations, glassmorphism, and dynamic layout transitions).
+*   **State Management:** React Hooks + Context API (`AuthContext`).
+*   **Icons & UI:** Lucide React.
 
-### Processing Flow
-
-```
-User Login (Firebase)
-    ↓
-Upload Document
-    ↓
-Backend Auth Verification
-    ↓
-Input Validation + Security Checks
-    ↓
-File Type Detection
-    ↓
-Text Extraction (PyMuPDF / python-docx / pandas / etc.)
-    ↓
-OCR (Tesseract) — if scanned/image document
-    ↓
-Text Cleaning & Normalization
-    ↓
-Smart Chunking (512 words, 50-word overlap)
-    ↓
-Embedding Generation (SentenceTransformer MiniLM-L3)
-    ↓
-FAISS Vector Index
-    ↓
-Document Metadata → Supabase
-    ↓
-Summary Generation (Gemini) → Short / Medium / Long
-    ↓
-Key Points + Main Ideas + Improvement Suggestions
-    ↓
-Results → Supabase + Frontend
-    ↓
-User Can Ask Questions (RAG → FAISS → Gemini)
-    ↓
-Chat Stored in Supabase
-```
+### Backend (API)
+*   **Framework:** FastAPI (Python 3.12) running on Uvicorn.
+*   **Database:** Supabase (PostgreSQL) for persistent document states and chat message histories.
+*   **AI & ML:** 
+    *   `google-generativeai` (Gemini)
+    *   `mistralai` (Mistral Fallback)
+    *   `sentence-transformers` (Embeddings)
+    *   `faiss-cpu` (Vector Database)
+*   **Document Processing:** `PyMuPDF` (fitz), `pytesseract`, `python-docx`, `python-pptx`, `pandas`, `BeautifulSoup4`.
 
 ---
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | Next.js 16, React 19, TailwindCSS 3.4, TypeScript |
-| **Backend** | Python 3.10+, FastAPI, Uvicorn |
-| **AI / LLM** | Google Gemini API (primary), HuggingFace Transformers (fallback) |
-| **Document Processing** | PyMuPDF (fitz), python-docx, python-pptx, pandas, openpyxl |
-| **OCR** | Tesseract OCR via pytesseract |
-| **Vector Search** | FAISS (IndexFlatIP), SentenceTransformer (paraphrase-MiniLM-L3-v2) |
-| **Authentication** | Firebase Authentication (email/password) |
-| **Database** | Supabase (PostgreSQL) |
-| **Embeddings** | SentenceTransformer with tiktoken tokenization |
-
----
-
-## Getting Started
+## 💻 Local Development Setup
 
 ### Prerequisites
+1.  **Node.js** (v18+)
+2.  **Python** (v3.10+)
+3.  **Tesseract OCR System Binary** (Must be installed on your OS and added to system PATH).
 
-- **Python 3.10+**
-- **Node.js 18+** and npm
-- **Tesseract OCR** — [Install guide](https://github.com/tesseract-ocr/tesseract)
-  - Windows: Download installer from [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki)
-  - macOS: `brew install tesseract`
-  - Linux: `sudo apt install tesseract-ocr`
-- **Google Gemini API Key** — [Get one here](https://aistudio.google.com/apikey)
-- **Firebase Project** — [Create one](https://console.firebase.google.com/)
-- **Supabase Project** — [Create one](https://supabase.com/dashboard)
-
-### Installation
-
+### 1. Clone & Configure
 ```bash
-# Clone the repository
-git clone https://github.com/shivamchavan12/DocLens.git
-cd DocLens
+git clone https://github.com/your-username/doclens.git
+cd doclens
+```
 
-# Backend setup
+### 2. Backend Setup
+```bash
+# Create and activate virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+source venv/bin/activate  # On Windows use: .\venv\Scripts\activate
 
+# Install dependencies
 pip install -r requirements.txt
 
-# Frontend setup
-cd frontend
-npm install
-cd ..
-```
+# Create a .env file in the root directory
+# Add the following:
+GEMINI_API_KEY=your_gemini_key
+MISTRAL_API_KEY=your_mistral_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_key
 
----
-
-## Environment Variables
-
-Create a `.env` file in the project root (see `.env.example`):
-
-```env
-# Google Gemini
-GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-2.0-flash
-
-# Firebase (Admin SDK - backend)
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=your-client-email
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Application
-LOG_LEVEL=INFO
-MAX_WORKERS=4
-TESSERACT_CMD=C:/Program Files/Tesseract-OCR/tesseract.exe
-```
-
-Create `frontend/.env.local` for the frontend:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-web-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-> ⚠️ **Never commit `.env` or `.env.local` files.** Use `.env.example` as reference.
-
----
-
-## Running Locally
-
-### Backend
-
-```bash
-# From project root (with venv activated)
+# Start the FastAPI server
 python start_server.py
-# Server starts at http://localhost:8000
 ```
 
-### Frontend
-
+### 3. Frontend Setup
 ```bash
 cd frontend
+
+# Install dependencies
+npm install
+
+# Create a .env.local file in the frontend directory
+# Add the following:
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Start the Next.js development server
 npm run dev
-# App starts at http://localhost:3000
-```
-
-### Verify
-
-- Backend health: `GET http://localhost:8000/health`
-- Frontend: Open `http://localhost:3000` in your browser
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/documents/upload` | Upload and process a document |
-| `GET` | `/api/documents` | List user's documents |
-| `GET` | `/api/documents/{id}` | Get document detail + summary |
-| `POST` | `/api/documents/{id}/summary` | Regenerate summary (different length) |
-| `POST` | `/api/documents/{id}/chat` | Ask a question about the document |
-| `GET` | `/api/documents/{id}/chat` | Get chat history for document |
-| `GET` | `/api/history` | Get user's full history |
-| `DELETE` | `/api/documents/{id}` | Delete a document |
-| `GET` | `/health` | Health check |
-
-All `/api/*` endpoints require a Firebase authentication token in the `Authorization: Bearer <token>` header.
-
----
-
-## Document Processing Pipeline
-
-### Text Extraction
-
-| Format | Extractor | OCR Fallback |
-|---|---|---|
-| PDF | PyMuPDF (fitz) | ✅ Auto-detects scanned pages |
-| Images | — | ✅ Tesseract OCR |
-| DOCX | python-docx | — |
-| PPTX | python-pptx | ✅ Embedded images |
-| XLSX | pandas + openpyxl | — |
-| PPT (legacy) | OLE parsing | ✅ Embedded images |
-| Email | email + BeautifulSoup | — |
-
-### OCR Detection
-
-For PDFs, the system automatically determines if OCR is needed:
-1. Extract text using PyMuPDF
-2. If extracted text < 100 characters → page is likely scanned
-3. Convert pages to images → run Tesseract OCR
-4. Combine OCR text with any extracted text
-
-### Chunking Strategy
-
-- **Chunk size:** ~512 words
-- **Overlap:** ~50 words
-- **Method:** Sentence-boundary splitting with overlap for context continuity
-
-### RAG Pipeline (for Q&A)
-
-1. Query → SentenceTransformer embedding
-2. FAISS similarity search (top-k=15 chunks)
-3. Keyword-based score enhancement
-4. Intent analysis (content type, question tone)
-5. Context assembly (max 3000 words)
-6. Gemini generates contextual answer
-
----
-
-## Supported Formats
-
-| Format | Extensions | Primary / Enhanced |
-|---|---|---|
-| PDF | `.pdf` | ✅ Primary |
-| Images | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp` | ✅ Primary |
-| Word | `.docx`, `.doc` | Enhanced |
-| PowerPoint | `.pptx`, `.ppt` | Enhanced |
-| Excel | `.xlsx`, `.xls` | Enhanced |
-| Email | `.eml` | Enhanced |
-| HTML | `.html`, `.htm` | Enhanced |
-| ZIP | `.zip` | Enhanced (with safety checks) |
-
----
-
-## Project Structure
-
-```
-DocLens/
-├── start_server.py              # FastAPI application entry point
-├── config.py                    # Environment-based configuration
-├── requirements.txt             # Python dependencies
-├── .env.example                 # Environment variable template
-│
-├── src/                         # Backend source modules
-│   ├── gemini_llm_engine.py     # Google Gemini API service
-│   ├── summary_service.py       # Summary orchestration service
-│   ├── document_text_extractor.py  # Multi-format document extraction + OCR
-│   ├── embedding_generator.py   # SentenceTransformer embeddings
-│   ├── faiss_vector_store.py    # FAISS vector store (save/load/search)
-│   ├── query_resolver.py        # RAG query pipeline
-│   ├── answer_generation_engine.py # LLM answer generation with fallbacks
-│   ├── firebase_service.py      # Firebase auth verification
-│   ├── supabase_service.py      # Supabase database operations
-│   ├── schemas.py               # Pydantic request/response models
-│   ├── input_validator.py       # File & URL validation, security
-│   ├── text_cleaner_utils.py    # Text normalization utilities
-│   ├── api_request_logger.py    # Audit logging
-│   ├── intelligent_agent.py     # Dynamic agent for complex documents
-│   ├── llm_interaction_service.py  # LLM interaction abstraction
-│   ├── open_source_llm_engine.py   # HuggingFace fallback models
-│   └── rule_based_answer_engine.py # Rule-based fallback engine
-│
-├── frontend/                    # Next.js frontend application
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx         # Dashboard (upload + recent docs)
-│   │   │   ├── layout.tsx       # Root layout with auth provider
-│   │   │   ├── login/           # Login page
-│   │   │   ├── register/        # Registration page
-│   │   │   ├── documents/[id]/  # Document workspace
-│   │   │   └── components/      # Shared UI components
-│   │   ├── contexts/            # React contexts (auth)
-│   │   └── lib/                 # Firebase, Supabase, API clients
-│   ├── package.json
-│   └── tailwind.config.ts
-│
-├── supabase/
-│   └── schema.sql               # Database schema & RLS policies
-│
-└── tests/                       # Test suite
-    ├── test_document_extraction.py
-    ├── test_summary_service.py
-    ├── test_gemini_service.py
-    ├── test_auth.py
-    └── test_api.py
 ```
 
 ---
 
-## Testing
+## 🚀 Production Deployment Guide
 
-```bash
-# Run all tests
-pytest tests/ -v
+Due to the heavy machine-learning dependencies and system binaries (Tesseract) required by the backend, the architecture must be split across two platforms for production.
 
-# Run specific test
-pytest tests/test_summary_service.py -v
+### Step 1: Deploy Backend to a Docker Host (e.g., Render, Railway, Fly.io)
+Vercel *cannot* host the backend due to serverless timeout and size limits.
+1. Create a New Web Service on Render.com and connect your GitHub repository.
+2. Render will automatically detect the provided `Dockerfile`.
+3. The `Dockerfile` will install a lightweight Linux container, download the `tesseract-ocr` binaries, and compile the PyTorch/FAISS environment.
+4. Input your Backend `.env` variables into the Render dashboard.
+5. Deploy. You will receive a live URL (e.g., `https://doclens-api.onrender.com`).
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-```
+### Step 2: Deploy Frontend to Vercel
+Vercel is the perfect, lightning-fast host for the Next.js frontend.
+1. Create a New Project on Vercel and connect your repository.
+2. Set the **Root Directory** to `frontend/`.
+3. In the Environment Variables section, set:
+   * `NEXT_PUBLIC_API_URL` = `https://doclens-api.onrender.com` (Your URL from Step 1)
+   * And your Supabase/Firebase public keys.
+4. Deploy!
 
-### Test Coverage
-
-- Document extraction (PDF, Image, DOCX)
-- OCR processing
-- Chunking validation
-- Summary generation (Short/Medium/Long)
-- Key points & main ideas extraction
-- Gemini API failure handling
-- Firebase auth verification
-- User data isolation
-- API endpoint integration
-- Health check
+*DocLens will now seamlessly route all API requests from the serverless edge to your persistent machine-learning backend.*
 
 ---
-
-## Deployment
-
-### Backend
-
-The FastAPI backend can be deployed to any Python-compatible platform:
-
-```bash
-# Production with Uvicorn
-uvicorn start_server:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-Compatible with: Railway, Render, AWS EC2, Google Cloud Run, Azure App Service
-
-### Frontend
-
-```bash
-cd frontend
-npm run build
-npm start
-```
-
-Compatible with: Vercel (recommended for Next.js), Netlify, AWS Amplify
-
----
-
-## Approach
-
-DocLens was built by evolving an existing sophisticated document-processing and RAG pipeline into a user-facing Document Summary Assistant. Rather than rebuilding from scratch, the strategy was to preserve the battle-tested extraction, chunking, embedding, and FAISS retrieval layers while adding a Gemini-powered summarization service on top. The primary LLM was migrated from Mistral to Google Gemini with structured JSON output for summaries, key points, and main ideas. Firebase Authentication provides secure user identity, while Supabase handles persistent storage with row-level security ensuring complete user isolation. The frontend was redesigned around a document-first workflow: upload → understand → ask — positioning the summary as the primary feature and Q&A as secondary. OCR is automatically triggered for scanned PDFs and images using Tesseract, with intelligent detection of pages that lack extractable text. The three-tier fallback chain (Gemini → HuggingFace → Rule-based) ensures the system remains functional even during API outages. The architecture prioritizes working functionality and clean UX over unnecessary complexity.
-
-*(197 words)*
-
----
-
-## License
-
-This project was created as part of a technical assessment.
-
----
-
-<p align="center">
-  Built using FastAPI, Next.js, Gemini AI, and FAISS
-</p>
+*Built with ❤️ by the DocLens Team.*

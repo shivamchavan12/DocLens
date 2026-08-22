@@ -23,8 +23,9 @@ class EmbeddingGenerator:
         self.executor = executor or ThreadPoolExecutor(max_workers=4)
         
         # Configure Gemini
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key and api_key != "your-gemini-api-key-here":
+        from config import Config
+        api_key = Config.get_gemini_key()
+        if api_key:
             genai.configure(api_key=api_key)
             
     async def generate_embeddings(self, chunks: List[Dict]) -> np.ndarray:

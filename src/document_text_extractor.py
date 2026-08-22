@@ -360,8 +360,9 @@ class DocumentTextExtractor:
             image = Image.open(image_bytes)
             
             # 1. OPTIMIZED AI CLOUD OCR (Gemini 1.5 Flash Vision)
-            api_key = os.getenv("GEMINI_API_KEY")
-            if api_key and api_key != 'your-gemini-api-key':
+            from config import Config
+            api_key = Config.get_gemini_key()
+            if api_key:
                 try:
                     import google.generativeai as genai
                     genai.configure(api_key=api_key)

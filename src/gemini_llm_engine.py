@@ -20,9 +20,9 @@ class GeminiService:
         Initializes the GeminiService.
         Raises ValueError if API key is missing or invalid.
         """
-        self.api_key = Config.GEMINI_API_KEY
-        if not self.api_key or self.api_key == 'your-gemini-api-key':
-            logging.error("GEMINI_API_KEY environment variable not set or is a placeholder.")
+        self.api_key = Config.get_gemini_key()
+        if not self.api_key:
+            logging.error("No valid Gemini API key found in environment variables.")
             # For the purpose of starting the server even without a key (fallback to other LLMs)
             # We don't raise an exception here immediately, but generation will fail if called.
             self.client = None

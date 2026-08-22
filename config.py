@@ -10,6 +10,14 @@ class Config:
     # API Keys and Tokens
     GEMINI_API_KEY: Optional[str] = os.getenv('GEMINI_API_KEY')
     GEMINI_MODEL: str = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
+    
+    @classmethod
+    def get_gemini_key(cls) -> Optional[str]:
+        """Returns a random available Gemini API key for load balancing."""
+        import random
+        keys = [k for k in [cls.GEMINI_API_KEY, cls.GEMINI_API_KEY_2, cls.GEMINI_API_KEY_3] 
+                if k and k != 'your-gemini-api-key']
+        return random.choice(keys) if keys else None
 
     # Firebase Admin SDK (Backend)
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv('FIREBASE_PROJECT_ID')

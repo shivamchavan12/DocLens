@@ -46,18 +46,31 @@ export default function DocumentWorkspace() {
   useEffect(() => {
     if (!docId) return;
     
+    let pollCount = 0;
+    
     const checkStatus = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/documents/${docId}/status`);
         if (res.ok) {
           const data = await res.json();
           setEmbeddingStatus(data.status);
-          if (data.status === "ready" || data.status === "failed") {
+          
+          // Stop polling if done, failed, or if the backend forgot about it (unknown) after restart
+          if (data.status === "ready" || data.status === "failed" || data.status === "unknown") {
+            // If it's unknown, we fallback to ready to allow the user to at least try chatting
+            if (data.status === "unknown") setEmbeddingStatus("ready");
             return true; // stop polling
           }
         }
       } catch (err) {
         console.error("Failed to check status:", err);
+      }
+      
+      pollCount++;
+      // Hard stop after 20 attempts (1 minute) to prevent infinite loops
+      if (pollCount >= 20) {
+        setEmbeddingStatus("failed");
+        return true;
       }
       return false;
     };
@@ -229,7 +242,7 @@ export default function DocumentWorkspace() {
       </div>
 
       {/* Floating Chat Agent */}
-      <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start justify-end">
+      <div className="absolute bottom-6 right-8 z-50 flex flex-col items-end justify-end">
         <AnimatePresence>
           {isChatOpen && (
             <motion.div
@@ -237,7 +250,7 @@ export default function DocumentWorkspace() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="mb-4 w-[350px] sm:w-[400px] h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+              className="mb-4 w-[calc(100vw-64px)] sm:w-[400px] max-w-[400px] h-[500px] max-h-[calc(100vh-140px)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col origin-bottom-right"
             >
               <div className="p-4 bg-indigo-600 text-white flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">

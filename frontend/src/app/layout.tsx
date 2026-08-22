@@ -7,7 +7,7 @@ import { AppShell } from '@/components/AppShell';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'DocLens - Enterprise Document Intelligence',
+  title: 'DocLens',
   description: 'Upload, analyze, and query documents with AI-powered intelligence.',
 };
 

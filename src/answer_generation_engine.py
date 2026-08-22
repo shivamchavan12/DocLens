@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple, Any
 from concurrent.futures import ThreadPoolExecutor
 
 from src.gemini_llm_engine import GeminiService
-from src.open_source_llm_engine import OpenSourceLLMEngine
+from src.mistral_api_llm_engine import MistralApiLLMEngine, MISTRAL_AVAILABLE
 from src.rule_based_answer_engine import RuleBasedAnswerEngine
 from src.text_cleaner_utils import clean_escape_characters
 
@@ -21,11 +21,10 @@ class AnswerGenerationEngine:
         # Initialize the available engines
         self.primary_engine = GeminiService(executor=self.executor)
         
-        # try:
-        #     self.fallback_llm = OpenSourceLLMEngine()
-        # except Exception as e:
-        #     logging.error(f"Failed to load Hugging Face models: {e}. OpenSourceLLMEngine won't be available.")
-        self.fallback_llm = None
+        if MISTRAL_AVAILABLE:
+            self.fallback_llm = MistralApiLLMEngine(executor=self.executor)
+        else:
+            self.fallback_llm = None
             
         self.rule_based_engine = RuleBasedAnswerEngine(executor=self.executor)
         
@@ -61,15 +60,19 @@ class AnswerGenerationEngine:
         except Exception as e:
             logging.error(f"Primary Gemini engine failed: {e}")
 
-        # Fallback 1: Open Source LLM
+        # Fallback 1: Mistral LLM
         if self.fallback_llm:
-            logging.info("Falling back to OpenSourceLLMEngine.")
+            logging.info("Falling back to Mistral API Engine.")
             try:
-                answer = await self.fallback_llm.generate_answer(query, relevant_chunks, query_intent)
-                if answer:
-                    return answer
+                context = self._prepare_context(relevant_chunks)
+                prompt = self._build_prompt(query, context, query_intent)
+                full_prompt = f"System: {self._get_system_prompt()}\n\n{prompt}"
+                
+                answer = await self.fallback_llm.generate(full_prompt)
+                if answer and len(answer.strip()) > 5:
+                    return self._post_process_answer(answer, relevant_chunks)
             except Exception as e:
-                logging.error(f"Open source LLM failed: {e}")
+                logging.error(f"Mistral API fallback failed: {e}")
 
         # Fallback 2: Rule-Based Engine
         logging.info("Falling back to RuleBasedAnswerEngine.")

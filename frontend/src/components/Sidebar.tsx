@@ -75,8 +75,8 @@ export function Sidebar() {
       {/* ─── Brand & Close Toggle ─── */}
       <div className="h-14 flex items-center justify-between px-5 shrink-0 border-b border-gray-100">
         <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setMobileOpen(false)}>
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
-            <Command size={14} className="text-white" />
+          <div className="w-7 h-7 flex items-center justify-center">
+            <img src="/logo.png" alt="DocLens Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-semibold text-[0.95rem] tracking-tight text-gray-900">DocLens</span>
         </Link>
@@ -258,8 +258,8 @@ export function Sidebar() {
       {/* Logo as Open Toggle */}
       <div className="h-14 flex items-center justify-center shrink-0 border-b border-gray-100 w-full">
         <button onClick={() => setCollapsed(false)} className="group outline-none" title="Open sidebar">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
-            <Command size={16} className="text-white" />
+          <div className="w-8 h-8 flex items-center justify-center">
+            <img src="/logo.png" alt="DocLens Logo" className="w-full h-full object-contain" />
           </div>
         </button>
       </div>

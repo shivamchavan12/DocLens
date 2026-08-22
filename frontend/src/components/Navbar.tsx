@@ -16,9 +16,9 @@ export function Navbar() {
     <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
-              <Command size={14} className="text-white" />
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 flex items-center justify-center">
+              <img src="/logo.png" alt="DocLens Logo" className="w-full h-full object-contain" />
             </div>
             <span className="font-semibold text-[0.95rem] tracking-tight text-gray-900">DocLens</span>
           </Link>

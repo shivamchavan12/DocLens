@@ -85,7 +85,7 @@ export default function Dashboard() {
     <>
       <div className="max-w-6xl mx-auto px-6 lg:px-8 py-10 space-y-10">
         {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Knowledge Base</h1>
           <p className="text-[0.95rem] text-gray-500 mt-1">Upload documents to extract intelligence and chat with their contents.</p>
         </motion.div>

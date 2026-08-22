@@ -124,8 +124,8 @@ export function AuthModal({ isOpen, onClose, defaultTab = "signin" }: AuthModalP
           {/* Header */}
           <div className="flex items-center justify-between p-5 pb-0">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                <Command size={16} className="text-white" />
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img src="/logo.png" alt="DocLens Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-semibold text-gray-900">DocLens</span>
             </div>

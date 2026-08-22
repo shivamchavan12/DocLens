@@ -101,6 +101,24 @@ export const api = {
     return response.json();
   },
 
+  async translateSummary(docId: string, language: string) {
+    const headers = await getAuthHeaders();
+    
+    const response = await fetch(`${API_BASE_URL}/api/documents/${docId}/translate`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ language }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to translate summary');
+    }
+    return response.json();
+  },
+
   async deleteDocument(docId: string) {
     const headers = await getAuthHeaders();
     

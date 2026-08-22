@@ -176,32 +176,43 @@ class DocumentTextExtractor:
                     nonlocal text
                     try:
                         with fitz.open(temp_path) as doc:
-                            for page in doc:
-                                text += page.get_text()
-                        # If fitz extracts very little text, it might be a scanned PDF.
-                        # In that case, try OCR.
-                        if len(text.strip()) < 100: # Threshold to decide if OCR is needed
-                            logging.info("Fitz extracted little text, trying OCR.")
-                            text = "" # Reset text to be filled by OCR
-                            with fitz.open(temp_path) as doc:
-                                for page_num in range(len(doc)):
-                                    page = doc.load_page(page_num)
+                            for page_num in range(len(doc)):
+                                page = doc.load_page(page_num)
+                                page_text = page.get_text()
+                                
+                                # ALWAYS extract and OCR embedded images in the page
+                                image_list = page.get_images(full=True)
+                                for img in image_list:
+                                    try:
+                                        xref = img[0]
+                                        base_image = doc.extract_image(xref)
+                                        image_bytes = base_image["image"]
+                                        img_obj = Image.open(BytesIO(image_bytes))
+                                        ocr_text = pytesseract.image_to_string(img_obj, lang=lang)
+                                        if ocr_text.strip():
+                                            page_text += "\n[Image Text]: " + ocr_text.strip() + "\n"
+                                    except Exception as img_err:
+                                        logging.warning(f"Failed to OCR embedded image on page {page_num}: {img_err}")
+                                
+                                # Fallback: if the page is literally an image WITHOUT embedded image tags
+                                # (like a flattened scanned PDF) and native text is negligible
+                                if len(page_text.strip()) < 50 and not image_list:
+                                    logging.info(f"Page {page_num} has no text and no images, trying full page OCR.")
                                     pix = page.get_pixmap()
-                                    img_bytes = pix.tobytes("ppm")
-                                    img = Image.open(BytesIO(img_bytes))
-                                    text += pytesseract.image_to_string(img, lang=lang)
+                                    img_obj = Image.open(BytesIO(pix.tobytes("ppm")))
+                                    page_text = pytesseract.image_to_string(img_obj, lang=lang)
+                                    
+                                text += page_text + "\n\n"
                     except Exception as e:
-                        logging.error(f"Error parsing PDF with fitz, trying OCR as fallback: {e}")
-                        # Fallback to OCR if fitz fails for any reason
+                        logging.error(f"Error parsing PDF with fitz, trying full OCR as fallback: {e}")
                         text = "" # Reset text
                         try:
                             with fitz.open(temp_path) as doc:
                                 for page_num in range(len(doc)):
                                     page = doc.load_page(page_num)
                                     pix = page.get_pixmap()
-                                    img_bytes = pix.tobytes("ppm")
-                                    img = Image.open(BytesIO(img_bytes))
-                                    text += pytesseract.image_to_string(img, lang=lang)
+                                    img_obj = Image.open(BytesIO(pix.tobytes("ppm")))
+                                    text += pytesseract.image_to_string(img_obj, lang=lang) + "\n\n"
                         except Exception as ocr_e:
                             logging.error(f"OCR fallback also failed: {ocr_e}")
 
@@ -217,25 +228,37 @@ class DocumentTextExtractor:
     def _extract_pdf_from_bytes(self, pdf_bytes: BytesIO) -> str:
         """
         Extracts text from a PDF provided as a BytesIO object (no URL needed).
-        Falls back to OCR if fitz extracts little text.
+        Extracts native text, applies OCR to embedded images, and uses page-level OCR as a last resort.
         """
         text = ""
         try:
             with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-                for page in doc:
-                    text += page.get_text()
-
-            if len(text.strip()) < 100:
-                logging.info("Fitz extracted little text from bytes PDF, trying OCR.")
-                pdf_bytes.seek(0)
-                text = ""
-                with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-                    for page_num in range(len(doc)):
-                        page = doc.load_page(page_num)
+                for page_num in range(len(doc)):
+                    page = doc.load_page(page_num)
+                    page_text = page.get_text()
+                    
+                    # ALWAYS extract and OCR embedded images in the page
+                    image_list = page.get_images(full=True)
+                    for img in image_list:
+                        try:
+                            xref = img[0]
+                            base_image = doc.extract_image(xref)
+                            image_bytes = base_image["image"]
+                            img_obj = Image.open(BytesIO(image_bytes))
+                            ocr_text = pytesseract.image_to_string(img_obj)
+                            if ocr_text.strip():
+                                page_text += "\n[Image Text]: " + ocr_text.strip() + "\n"
+                        except Exception as img_err:
+                            logging.warning(f"Failed to OCR embedded image on page {page_num}: {img_err}")
+                    
+                    # Fallback for flattened scanned pages without native text or image tags
+                    if len(page_text.strip()) < 50 and not image_list:
+                        logging.info(f"Page {page_num} has little text and no images from bytes PDF, trying full page OCR.")
                         pix = page.get_pixmap()
-                        img_bytes = pix.tobytes("ppm")
-                        img = Image.open(BytesIO(img_bytes))
-                        text += pytesseract.image_to_string(img)
+                        img_obj = Image.open(BytesIO(pix.tobytes("ppm")))
+                        page_text = pytesseract.image_to_string(img_obj)
+                        
+                    text += page_text + "\n\n"
         except Exception as e:
             logging.error(f"Error extracting PDF from bytes: {e}")
         return text
@@ -246,9 +269,41 @@ class DocumentTextExtractor:
         """
         try:
             doc = docx.Document(docx_bytes)
-            return "\n".join([p.text for p in doc.paragraphs])
+            text = "\n".join([p.text for p in doc.paragraphs])
+            
+            # Extract images from DOCX
+            for rel in doc.part.rels.values():
+                if "image" in rel.target_ref:
+                    try:
+                        img_bytes = rel.target_part.blob
+                        img_obj = Image.open(BytesIO(img_bytes))
+                        ocr_text = pytesseract.image_to_string(img_obj)
+                        if ocr_text.strip():
+                            text += "\n[Image Text]: " + ocr_text.strip() + "\n"
+                    except Exception as img_err:
+                        logging.warning(f"Failed to OCR embedded image in DOCX: {img_err}")
+            
+            return text
         except Exception as e:
-            raise Exception(f"Error extracting DOCX text: {str(e)}")
+            logging.warning(f"python-docx failed: {e}. Trying manual XML fallback.")
+            try:
+                import zipfile
+                import xml.etree.ElementTree as ET
+                docx_bytes.seek(0)
+                with zipfile.ZipFile(docx_bytes) as docx_zip:
+                    xml_content = docx_zip.read('word/document.xml')
+                    tree = ET.XML(xml_content)
+                    
+                    WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+                    PARA = WORD_NAMESPACE + 'p'
+                    TEXT = WORD_NAMESPACE + 't'
+                    
+                    texts = []
+                    for paragraph in tree.iter(PARA):
+                        texts.append("".join(node.text for node in paragraph.iter(TEXT) if node.text))
+                    return "\n".join(texts)
+            except Exception as fallback_err:
+                raise Exception(f"Error extracting DOCX text: {str(e)} | Fallback also failed: {fallback_err}")
 
     def _extract_email_text(self, email_content: bytes) -> str:
         """

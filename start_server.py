@@ -17,7 +17,7 @@ from config import Config
 
 from src.schemas import (
     DocumentUploadResponse, SummaryResponse, ChatRequest, ChatResponse,
-    DocumentListResponse, DocumentDetail
+    DocumentListResponse, DocumentDetail, TranslateRequest, TranslateResponse
 )
 from src.summary_service import SummaryService
 from src.firebase_service import get_current_user, FirebaseService
@@ -176,6 +176,62 @@ async def delete_document(doc_id: str, user: dict = Depends(get_current_user)):
     if not success:
         raise HTTPException(status_code=404, detail="Document not found or could not be deleted")
     return {"status": "success"}
+
+
+@app.post("/api/documents/{doc_id}/translate", response_model=TranslateResponse)
+async def translate_document_summary(doc_id: str, request: TranslateRequest, user: dict = Depends(get_current_user)):
+    """Translate document summary and key points to a specific language"""
+    doc = supabase_service.get_document(user["uid"], doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    original_summary = doc.get("summary", "")
+    original_key_points = doc.get("key_points", [])
+    
+    prompt = f"""
+    Translate the following summary and key points into {request.language}.
+    Keep the exact same formatting, tone, and markdown structure.
+    
+    Original Summary:
+    {original_summary}
+    
+    Original Key Points:
+    {chr(10).join(f"- {kp}" for kp in original_key_points)}
+    """
+    
+    schema = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string", "description": "The translated summary text"},
+            "key_points": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "The translated key points"
+            }
+        },
+        "required": ["summary", "key_points"]
+    }
+    
+    try:
+        # Use the app's existing LLM engine to perform the translation
+        response_data = await app.state.summary_service.gemini.generate_json(prompt, schema=schema)
+        
+        # Fallback to Mistral if Gemini fails (e.g., rate limits)
+        if (not response_data or "summary" not in response_data) and app.state.summary_service.mistral:
+            logging.warning("Gemini failed to translate, falling back to Mistral API...")
+            response_data = await app.state.summary_service.mistral.generate_json(prompt)
+            
+        if not response_data or "summary" not in response_data:
+            raise Exception("Failed to generate translation from both Gemini and Mistral")
+            
+        return TranslateResponse(
+            summary=response_data["summary"],
+            key_points=response_data.get("key_points", [])
+        )
+    except Exception as e:
+        logging.error(f"Error translating summary: {e}")
+        raise HTTPException(status_code=500, detail="Translation failed")
+
 
 
 @app.post("/api/documents/{doc_id}/chat", response_model=ChatResponse)

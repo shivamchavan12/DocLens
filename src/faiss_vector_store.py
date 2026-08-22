@@ -86,6 +86,8 @@ class FAISSVectorStore:
         """
         Normalizes embeddings to unit vectors. Essential for Inner Product (IP) similarity.
         """
+        if embeddings.ndim == 1:
+            embeddings = np.expand_dims(embeddings, axis=0)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         norms[norms == 0] = 1 # Avoid division by zero for zero vectors
         return embeddings / norms

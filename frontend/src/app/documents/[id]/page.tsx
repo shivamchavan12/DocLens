@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -14,9 +14,10 @@ import {
   File,
   Copy,
   Check,
+  Globe,
+  Loader2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { AuthModal } from "@/components/AuthModal";
 
 export default function DocumentWorkspace() {
   const { user, loading, isGuest } = useAuth();
@@ -29,6 +30,10 @@ export default function DocumentWorkspace() {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const [originalDoc, setOriginalDoc] = useState<any>(null);
+  
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,9 +51,12 @@ export default function DocumentWorkspace() {
     try {
       const data = await api.getDocument(docId);
       setDoc(data);
+      setOriginalDoc(data);
     } catch (err) {
-      console.error(err);
-      router.push("/");
+      // Ignore 404s/Auth errors during logout transitions
+      if (typeof window !== "undefined" && window.location.pathname.includes(docId)) {
+        router.push("/");
+      }
     }
   };
 
@@ -57,7 +65,34 @@ export default function DocumentWorkspace() {
       const data = await api.getChatHistory(docId);
       setChatHistory(data.messages || []);
     } catch (err) {
+      // Silently ignore fetch errors during route transitions (e.g. logging out)
+    }
+  };
+
+  const handleTranslate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const lang = e.target.value;
+    setSelectedLanguage(lang);
+    
+    if (lang === "English") {
+      if (originalDoc) setDoc(originalDoc);
+      return;
+    }
+    
+    setIsTranslating(true);
+    try {
+      const translatedData = await api.translateSummary(docId, lang);
+      setDoc((prev: any) => ({
+        ...prev,
+        summary: translatedData.summary,
+        key_points: translatedData.key_points
+      }));
+    } catch (err) {
       console.error(err);
+      alert("Failed to translate. Please try again.");
+      setSelectedLanguage("English");
+      if (originalDoc) setDoc(originalDoc);
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -85,15 +120,38 @@ export default function DocumentWorkspace() {
   };
 
   function renderMd(text: string) {
-    return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-      part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={i} className="font-semibold text-gray-900">
-          {part.slice(2, -2)}
-        </strong>
-      ) : (
-        <span key={i}>{part}</span>
-      )
-    );
+    if (!text) return null;
+    
+    // Split text into paragraphs based on double newlines
+    const paragraphs = text.split(/\n\n+/);
+    
+    return paragraphs.map((paragraph, pIndex) => {
+      // Process bold text and single line breaks within each paragraph
+      const lines = paragraph.split('\n');
+      
+      return (
+        <p key={pIndex} className="mb-4 last:mb-0">
+          {lines.map((line, lIndex) => {
+            const parts = line.split(/(\*\*[^*]+\*\*)/g);
+            return (
+              <Fragment key={lIndex}>
+                {parts.map((part, i) =>
+                  part.startsWith("**") && part.endsWith("**") ? (
+                    <strong key={i} className="font-semibold text-gray-900">
+                      {part.slice(2, -2)}
+                    </strong>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  )
+                )}
+                {/* Add a <br/> if this isn't the last line in the paragraph */}
+                {lIndex < lines.length - 1 && <br />}
+              </Fragment>
+            );
+          })}
+        </p>
+      );
+    });
   }
 
   if (loading) {
@@ -150,9 +208,78 @@ export default function DocumentWorkspace() {
               <Sparkles className="text-indigo-600 w-4 h-4" />
               <h2 className="text-[0.95rem] font-semibold text-gray-900">Intelligence Summary</h2>
             </div>
-            <span className="text-[0.7rem] font-semibold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-indigo-100">
-              {doc.summary_length}
-            </span>
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden transition-all focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+                <div className="pl-2.5 pr-1 text-gray-400">
+                  {isTranslating ? <Loader2 size={13} className="animate-spin text-indigo-500" /> : <Globe size={13} />}
+                </div>
+                <select
+                  value={selectedLanguage}
+                  onChange={handleTranslate}
+                  disabled={isTranslating}
+                  className="bg-transparent text-[0.75rem] font-medium text-gray-600 py-1.5 pr-6 pl-1 outline-none cursor-pointer appearance-none disabled:opacity-50"
+                  style={{
+                    background: 'transparent url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'none\' stroke=\'%239ca3af\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'3 5 6 8 9 5\'></polyline></svg>") no-repeat right 6px center'
+                  }}
+                >
+                  <optgroup label="Global Languages">
+                    <option value="English">English</option>
+                    <option value="Spanish">Español (Spanish)</option>
+                    <option value="French">Français (French)</option>
+                    <option value="German">Deutsch (German)</option>
+                    <option value="Italian">Italiano (Italian)</option>
+                    <option value="Portuguese">Português (Portuguese)</option>
+                    <option value="Russian">Русский (Russian)</option>
+                    <option value="Arabic">العربية (Arabic)</option>
+                    <option value="Chinese (Simplified)">中文 (Chinese)</option>
+                    <option value="Japanese">日本語 (Japanese)</option>
+                    <option value="Korean">한국어 (Korean)</option>
+                    <option value="Turkish">Türkçe (Turkish)</option>
+                    <option value="Vietnamese">Tiếng Việt (Vietnamese)</option>
+                    <option value="Thai">ไทย (Thai)</option>
+                    <option value="Indonesian">Bahasa Indonesia (Indonesian)</option>
+                    <option value="Malay">Bahasa Melayu (Malay)</option>
+                    <option value="Dutch">Nederlands (Dutch)</option>
+                    <option value="Polish">Polski (Polish)</option>
+                    <option value="Ukrainian">Українська (Ukrainian)</option>
+                    <option value="Swahili">Kiswahili (Swahili)</option>
+                    <option value="Tagalog">Tagalog (Filipino)</option>
+                    <option value="Greek">Ελληνικά (Greek)</option>
+                    <option value="Hebrew">עברית (Hebrew)</option>
+                    <option value="Swedish">Svenska (Swedish)</option>
+                    <option value="Danish">Dansk (Danish)</option>
+                    <option value="Finnish">Suomi (Finnish)</option>
+                    <option value="Norwegian">Norsk (Norwegian)</option>
+                  </optgroup>
+                  <optgroup label="Indian Languages">
+                    <option value="Hindi">हिन्दी (Hindi)</option>
+                    <option value="Bengali">বাংলা (Bengali)</option>
+                    <option value="Telugu">తెలుగు (Telugu)</option>
+                    <option value="Marathi">मराठी (Marathi)</option>
+                    <option value="Tamil">தமிழ் (Tamil)</option>
+                    <option value="Urdu">اردو (Urdu)</option>
+                    <option value="Gujarati">ગુજરાતી (Gujarati)</option>
+                    <option value="Kannada">ಕನ್ನಡ (Kannada)</option>
+                    <option value="Odia">ଓଡ଼ିଆ (Odia)</option>
+                    <option value="Malayalam">മലയാളം (Malayalam)</option>
+                    <option value="Punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
+                    <option value="Assamese">অসমীয়া (Assamese)</option>
+                    <option value="Maithili">मैथिली (Maithili)</option>
+                    <option value="Santali">ᱥᱟᱱᱛᱟᱲᱤ (Santali)</option>
+                    <option value="Kashmiri">कॉशुर / كأشُر (Kashmiri)</option>
+                    <option value="Nepali">नेपाली (Nepali)</option>
+                    <option value="Sindhi">سنڌي (Sindhi)</option>
+                    <option value="Konkani">कोंकणी (Konkani)</option>
+                    <option value="Dogri">डोगरी (Dogri)</option>
+                    <option value="Bodo">बर' (Bodo)</option>
+                    <option value="Sanskrit">संस्कृतम् (Sanskrit)</option>
+                  </optgroup>
+                </select>
+              </div>
+              <span className="text-[0.7rem] font-semibold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-indigo-100">
+                {doc.summary_length}
+              </span>
+            </div>
           </div>
 
           <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 flex-1">
@@ -161,7 +288,9 @@ export default function DocumentWorkspace() {
                 <File className="w-3 h-3" />
                 Executive Summary
               </h3>
-              <p className="text-[0.9rem] text-gray-700 leading-relaxed">{doc.summary}</p>
+              <div className="text-[0.9rem] text-gray-700 leading-relaxed">
+                {renderMd(doc.summary)}
+              </div>
             </section>
 
             {doc.key_points && doc.key_points.length > 0 && (
@@ -265,11 +394,10 @@ function ChatBubble({ msg, renderMd }: { msg: any; renderMd: (t: string) => Reac
     <div className={`flex group ${isUser ? "justify-end" : "justify-start"}`}>
       <div className="flex flex-col max-w-[85%]">
         <div
-          className={`rounded-2xl px-4 py-2.5 text-[0.9rem] shadow-sm ${
-            isUser
+          className={`rounded-2xl px-4 py-2.5 text-[0.9rem] shadow-sm ${isUser
               ? "bg-indigo-600 text-white rounded-br-sm"
               : "bg-white border border-gray-200 text-gray-800 rounded-bl-sm"
-          }`}
+            }`}
         >
           <div className="whitespace-pre-wrap break-words leading-relaxed">
             {isUser ? msg.content : renderMd(msg.content)}

@@ -38,3 +38,10 @@ class DocumentDetail(BaseModel):
 
 class DocumentListResponse(BaseModel):
     documents: List[DocumentDetail]
+
+class TranslateRequest(BaseModel):
+    language: str
+
+class TranslateResponse(BaseModel):
+    summary: str
+    key_points: List[str]

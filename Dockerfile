@@ -28,6 +28,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the backend codebase into the container
 COPY . .
 
+# Pre-download the ML models so they don't timeout during server startup
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('paraphrase-MiniLM-L3-v2')"
+
 # Command to run the application using uvicorn. 
 # We use the $PORT environment variable which cloud providers inject.
 CMD sh -c "uvicorn start_server:app --host 0.0.0.0 --port ${PORT:-8000}"

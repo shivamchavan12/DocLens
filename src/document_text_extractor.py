@@ -6,7 +6,7 @@ import re
 from typing import List, Dict, AsyncGenerator
 from io import BytesIO
 from bs4 import BeautifulSoup
-import fitz
+import pymupdf
 import os
 from tempfile import NamedTemporaryFile
 import logging
@@ -178,7 +178,7 @@ class DocumentTextExtractor:
                 def parse_pdf():
                     nonlocal text
                     try:
-                        with fitz.open(temp_path) as doc:
+                        with pymupdf.open(temp_path) as doc:
                             for page_num in range(len(doc)):
                                 page = doc.load_page(page_num)
                                 page_text = page.get_text()
@@ -210,7 +210,7 @@ class DocumentTextExtractor:
                         logging.error(f"Error parsing PDF with fitz, trying full OCR as fallback: {e}")
                         text = "" # Reset text
                         try:
-                            with fitz.open(temp_path) as doc:
+                            with pymupdf.open(temp_path) as doc:
                                 for page_num in range(len(doc)):
                                     page = doc.load_page(page_num)
                                     pix = page.get_pixmap()
@@ -235,7 +235,7 @@ class DocumentTextExtractor:
         """
         text = ""
         try:
-            with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
                 for page_num in range(len(doc)):
                     page = doc.load_page(page_num)
                     page_text = page.get_text()
@@ -353,9 +353,19 @@ class DocumentTextExtractor:
     def _extract_image_text(self, image_bytes: BytesIO, lang: str = 'eng') -> str:
         """
         Extracts text from an image file using Tesseract OCR.
+        Optimized for slow cloud CPUs by downscaling large images first.
         """
         try:
             image = Image.open(image_bytes)
+            
+            # Optimization: Downscale massive images to speed up OCR on Render's 0.1 vCPU
+            max_size = 1200
+            if image.width > max_size or image.height > max_size:
+                image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                
+            # Convert to grayscale to further speed up OCR
+            image = image.convert('L')
+            
             text = pytesseract.image_to_string(image, lang=lang)
             return text
         except Exception as e:

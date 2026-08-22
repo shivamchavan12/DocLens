@@ -30,7 +30,8 @@ class DocumentTextExtractor:
     extracts text, and chunks it into smaller, manageable pieces for further processing.
     """
     def __init__(self, executor=None):
-        self.executor = executor
+        from concurrent.futures import ThreadPoolExecutor
+        self.executor = executor or ThreadPoolExecutor(max_workers=4)
         self.chunk_size = 512  # Desired size of text chunks (in words)
         self.overlap = 50      # Number of words to overlap between consecutive chunks
         self.client = httpx.AsyncClient(

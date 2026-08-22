@@ -17,9 +17,10 @@ class EmbeddingGenerator:
     This saves ~400MB of RAM and prevents Out Of Memory crashes on Render.
     """
     def __init__(self, model_name: str = "models/gemini-embedding-001", device: str = "cpu", executor: ThreadPoolExecutor = None):
+        from concurrent.futures import ThreadPoolExecutor
         self.model_name = model_name
         self.max_tokens = 2000 # Gemini handles larger contexts easily
-        self.executor = executor
+        self.executor = executor or ThreadPoolExecutor(max_workers=4)
         
         # Configure Gemini
         api_key = os.getenv("GEMINI_API_KEY")

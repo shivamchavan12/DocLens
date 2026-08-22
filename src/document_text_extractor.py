@@ -18,8 +18,11 @@ from pptx import Presentation
 import olefile
 from src.text_cleaner_utils import clean_escape_characters
 
-# Set the path for the Tesseract OCR executable. This is specific to the environment.
-pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+import sys
+# Set the path for the Tesseract OCR executable based on the operating system.
+# Linux (Render) handles this automatically via system PATH.
+if sys.platform == 'win32':
+    pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
 
 class DocumentTextExtractor:
     """

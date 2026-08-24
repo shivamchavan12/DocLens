@@ -276,6 +276,65 @@ async def translate_document_summary(doc_id: str, request: TranslateRequest, use
 
 
 
+@app.post("/api/documents/{doc_id}/translate", response_model=TranslateResponse)
+async def translate_document(
+    doc_id: str, 
+    request: TranslateRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Translate the summary and key points of a document into a target language."""
+    doc = supabase_service.get_document(user["uid"], doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    summary = doc.get("summary", "")
+    key_points = doc.get("key_points", [])
+    
+    if not summary:
+        raise HTTPException(status_code=400, detail="Document has no summary to translate")
+        
+    target_language = request.language
+    
+    prompt = f"""You are a professional translator. 
+Translate the following summary and key points into {target_language}.
+Maintain the exact same tone, meaning, and formatting.
+
+Summary to translate:
+{summary}
+
+Key points to translate:
+{key_points}
+
+Return ONLY valid JSON matching this schema exactly:
+{{
+  "summary": "translated summary string",
+  "key_points": ["translated point 1", "translated point 2"]
+}}
+"""
+    
+    try:
+        # We reuse the summary service's Gemini engine to do the translation
+        import json
+        result = await app.state.summary_service.gemini.generate_json(prompt)
+        
+        if not result or "summary" not in result:
+            # Fallback to Mistral if Gemini fails
+            if app.state.summary_service.mistral:
+                result = await app.state.summary_service.mistral.generate_json(prompt)
+                
+        if not result or "summary" not in result:
+             raise Exception("LLM failed to return translated JSON")
+             
+        return TranslateResponse(
+            summary=result["summary"],
+            key_points=result.get("key_points", [])
+        )
+    except Exception as e:
+        import traceback
+        logging.error(f"Translation failed: {e}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Translation service failed")
+
 @app.post("/api/documents/{doc_id}/chat", response_model=ChatResponse)
 async def document_chat(
     doc_id: str, 

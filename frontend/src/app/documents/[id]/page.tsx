@@ -17,6 +17,7 @@ import {
   MessageCircle,
   X,
   Loader2,
+  Languages,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -32,8 +33,63 @@ export default function DocumentWorkspace() {
   const [isAsking, setIsAsking] = useState(false);
   const [embeddingStatus, setEmbeddingStatus] = useState<"processing" | "ready" | "failed" | "unknown">("unknown");
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const LANGUAGES = [
+    // Global Languages
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'zh', name: 'Mandarin Chinese' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'ar', name: 'Arabic' },
+    { code: 'tr', name: 'Turkish' },
+    { code: 'nl', name: 'Dutch' },
+    { code: 'pl', name: 'Polish' },
+    { code: 'id', name: 'Indonesian' },
+    
+    // Indian Regional Languages
+    { code: 'hi', name: 'Hindi' },
+    { code: 'mr', name: 'Marathi' },
+    { code: 'ta', name: 'Tamil' },
+    { code: 'te', name: 'Telugu' },
+    { code: 'bn', name: 'Bengali' },
+    { code: 'gu', name: 'Gujarati' },
+    { code: 'kn', name: 'Kannada' },
+    { code: 'ml', name: 'Malayalam' },
+    { code: 'or', name: 'Odia' },
+    { code: 'pa', name: 'Punjabi' },
+    { code: 'ur', name: 'Urdu' },
+    { code: 'sa', name: 'Sanskrit' }
+  ];
+
+  const handleTranslate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const lang = e.target.value;
+    if (!lang || !docId) return;
+    
+    setIsTranslating(true);
+    try {
+      const result = await api.translateSummary(docId, lang);
+      setDoc((prev: any) => ({
+        ...prev,
+        summary: result.summary,
+        key_points: result.key_points
+      }));
+    } catch (err) {
+      console.error("Translation failed:", err);
+      alert("Failed to translate the document. Please try again.");
+    } finally {
+      setIsTranslating(false);
+      e.target.value = ""; // Reset dropdown after translation
+    }
+  };
 
   useEffect(() => {
     if (!loading && docId) {
@@ -198,10 +254,25 @@ export default function DocumentWorkspace() {
             
             <h1 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight">Intelligence Summary</h1>
             
-            <div className="mb-8">
+            <div className="mb-8 flex flex-wrap justify-center items-center gap-3">
               <span className="text-[0.7rem] font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full uppercase tracking-wider border border-indigo-100">
                 {doc.summary_length} Output
               </span>
+              
+              <div className="relative inline-flex items-center">
+                <Languages className="w-3.5 h-3.5 text-gray-400 absolute left-3" />
+                <select 
+                  onChange={handleTranslate}
+                  disabled={isTranslating}
+                  className="pl-8 pr-8 py-1 text-[0.75rem] font-medium bg-white border border-gray-200 text-gray-700 rounded-full hover:bg-gray-50 focus:outline-none focus:border-indigo-300 transition-colors disabled:opacity-50 appearance-none shadow-sm cursor-pointer"
+                >
+                  <option value="">{isTranslating ? 'Translating...' : 'Translate to...'}</option>
+                  {LANGUAGES.map(lang => (
+                    <option key={lang.code} value={lang.name}>{lang.name}</option>
+                  ))}
+                </select>
+                <ChevronRight className="w-3 h-3 text-gray-400 absolute right-3 rotate-90" />
+              </div>
             </div>
 
             <section className="w-full text-left mb-10">

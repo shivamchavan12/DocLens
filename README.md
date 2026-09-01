@@ -176,4 +176,4 @@ Vercel is the perfect, lightning-fast host for the Next.js frontend.
 *DocLens will now seamlessly route all API requests from the serverless edge to your persistent machine-learning backend.*
 
 ---
-*Built with ❤️ by the DocLens Team.*
+*Built by shivam chavan.*
